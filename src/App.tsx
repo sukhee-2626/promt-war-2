@@ -1,31 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import {
+  BarChart3,
+  BookOpen,
+  Bot,
+  Calculator,
+  Compass,
+  Database,
+  FileText,
+  Flame,
+  GitBranch,
+  LayoutDashboard,
+  Map,
+  Mic,
+  Terminal,
+  Trophy,
+} from 'lucide-react';
+import { AnalyticsView } from './components/AnalyticsView';
 import { OnboardingModal, SignInModal } from './components/AuthOnboarding';
+import { AgentsView } from './components/CareerViews';
+import { CommandCentreView } from './components/CommandCentreView';
 import {
-  AchievementsView,
-  AgentsView,
-  AtsLabView,
-  CareerKitView,
-  InterviewView,
-  JobsView,
-  PivotView,
-  ResumeView,
-  TrackerView,
-} from './components/CareerViews';
-import {
-  LearnView,
-  MeetView,
-  PracticeView,
-  QuizView,
-  ResourcesView,
-  StudyView,
-} from './components/LearnViews';
+  DailyChallengeView,
+  LeaderboardView,
+  RagHubView,
+  TutorTreeView,
+} from './components/HighlightsViews';
+import { PracticeView } from './components/LearnViews';
 import { MentorDrawer } from './components/MentorDrawer';
-import {
-  HomeView,
-  PositionView,
-  RoadmapView,
-  SkillMapView,
-} from './components/PlanViews';
+import { RoadmapView } from './components/PlanViews';
 import {
   AgentRunnerOverlay,
   BrandLogo,
@@ -34,7 +36,15 @@ import {
   GuidedTourOverlay,
   NeuralBackground,
   RewardsModal,
+  TOUR_STEPS,
 } from './components/UiPrimitives';
+import {
+  AptitudeLabView,
+  CoreConceptsView,
+  MockInterviewsView,
+  MyProgressHubView,
+  ResumeAnalyzerView,
+} from './components/WorkspaceHubs';
 import { api } from './lib/api';
 import type {
   AppState,
@@ -46,65 +56,81 @@ import type {
   UserProfile,
 } from './types';
 
-const ICON_PATHS: Record<string, string> = {
-  home: 'M3 11l9-8 9 8v10H3z',
-  position: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2',
-  map: 'M6 6h4v4H6zM14 14h4v4h-4zM10 8h4v6',
-  roadmap: 'M4 19c4 0 4-6 8-6s4-6 8-6',
-  learn: 'M3 6l9-3 9 3-9 3zM7 11v4c3 2 7 2 10 0v-4',
-  quiz: 'M5 4h14v16H5zM9 9h6M9 13h4',
-  practice: 'M8 6l-5 6 5 6M16 6l5 6-5 6',
-  res: 'M4 5h7v14H4zM13 5h7v14h-7z',
-  meet: 'M3 7h12v10H3zM15 11l6-3v8l-6-3',
-  study: 'M12 8v4l3 2M12 21a8 8 0 100-16 8 8 0 000 16zM9 2h6',
-  resume: 'M7 3h8l4 4v14H7zM10 12h6M10 16h6',
-  ats: 'M4 12l5 5L20 6',
-  jobs: 'M3 8h18v12H3zM9 8V5h6v3',
-  track: 'M3 5h5v14H3zM10 5h5v9h-5zM17 5h4v6h-4z',
-  kit: 'M3 8h18v12H3zM9 8V5h6v3M3 13h18',
-  interview: 'M4 5h16v10H9l-5 4z',
-  pivot: 'M4 8h13l-3-3M20 16H7l3 3',
-  ach: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0z',
-  agents: 'M12 3v4M12 17v4M3 12h4M17 12h4M8 8h8v8H8z',
-};
+type ScreenId =
+  | 'command'
+  | 'roadmap'
+  | 'agents'
+  | 'rag'
+  | 'dsa'
+  | 'interview'
+  | 'resume'
+  | 'concepts'
+  | 'aptitude'
+  | 'analytics'
+  | 'tutortree'
+  | 'daily'
+  | 'progress'
+  | 'leaderboard';
 
-const NAV_ITEMS: Array<[string, string]> = [
-  ['home', 'Home'],
-  ['position', 'Position'],
-  ['map', 'Skill map'],
-  ['roadmap', 'Roadmap'],
-  ['learn', 'Learn'],
-  ['quiz', 'Assess'],
-  ['practice', 'Practice'],
-  ['res', 'Resources'],
-  ['meet', 'Meet'],
-  ['study', 'Study'],
-  ['resume', 'Resume'],
-  ['ats', 'ATS lab'],
-  ['jobs', 'Jobs'],
-  ['track', 'Tracker'],
-  ['kit', 'Career kit'],
-  ['interview', 'Interview'],
-  ['pivot', 'Pivot'],
-  ['ach', 'Achievements'],
-  ['agents', 'Agents'],
+const NAV_ITEMS: Array<{
+  id: ScreenId;
+  label: string;
+  group: 'AI TOOLS' | 'PRACTICE & PREP' | 'PROGRESS';
+  icon: React.ComponentType<{ size?: number }>;
+}> = [
+  { id: 'command', label: 'Command Centre', group: 'AI TOOLS', icon: LayoutDashboard },
+  { id: 'roadmap', label: 'My Roadmap', group: 'AI TOOLS', icon: Map },
+  { id: 'agents', label: 'Build AI Agents', group: 'AI TOOLS', icon: Bot },
+  { id: 'rag', label: 'AI Study Mentor', group: 'AI TOOLS', icon: Database },
+  { id: 'dsa', label: 'Coding Test & DSA', group: 'PRACTICE & PREP', icon: Terminal },
+  { id: 'interview', label: 'Virtual Interview', group: 'PRACTICE & PREP', icon: Mic },
+  { id: 'resume', label: 'AI Resume Builder', group: 'PRACTICE & PREP', icon: FileText },
+  { id: 'concepts', label: 'Core Lessons', group: 'PRACTICE & PREP', icon: BookOpen },
+  { id: 'aptitude', label: 'Aptitude & Quizzes', group: 'PRACTICE & PREP', icon: Calculator },
+  { id: 'analytics', label: 'Analytics & Insights', group: 'PROGRESS', icon: BarChart3 },
+  { id: 'tutortree', label: 'Skill Map', group: 'PROGRESS', icon: GitBranch },
+  { id: 'daily', label: 'Daily Practice', group: 'PROGRESS', icon: Flame },
+  { id: 'progress', label: 'Jobs & Progress', group: 'PROGRESS', icon: Compass },
+  { id: 'leaderboard', label: 'Leaderboard', group: 'PROGRESS', icon: Trophy },
 ];
 
-const SIDEBAR_GROUPS: Array<[string, string[]]> = [
-  ['Plan', ['home', 'position', 'map', 'roadmap']],
-  ['Learn', ['learn', 'quiz', 'practice', 'res', 'study', 'meet']],
-  ['Career', ['resume', 'ats', 'jobs', 'track', 'kit', 'interview', 'pivot']],
-  ['Progress', ['ach', 'agents']],
+const SIDEBAR_GROUPS: Array<'AI TOOLS' | 'PRACTICE & PREP' | 'PROGRESS'> = [
+  'AI TOOLS',
+  'PRACTICE & PREP',
+  'PROGRESS',
 ];
 
-const MOBILE_TABS = ['home', 'map', 'learn', 'resume'];
+const MOBILE_TABS: ScreenId[] = ['command', 'roadmap', 'agents', 'interview'];
 
-function NavIcon({ id }: { id: string }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={ICON_PATHS[id] || ICON_PATHS.home} />
-    </svg>
-  );
+function resolveScreenAlias(raw: string): ScreenId {
+  const clean = raw.replace(/^#/, '');
+  const found = NAV_ITEMS.find((n) => n.id === clean);
+  if (found) return found.id;
+  const legacyMap: Record<string, ScreenId> = {
+    home: 'command',
+    map: 'tutortree',
+    roadmap: 'roadmap',
+    position: 'progress',
+    jobs: 'progress',
+    'progress-jobs': 'progress',
+    track: 'progress',
+    kit: 'progress',
+    pivot: 'progress',
+    ach: 'progress',
+    ats: 'resume',
+    learn: 'concepts',
+    res: 'concepts',
+    study: 'concepts',
+    quiz: 'aptitude',
+    practice: 'dsa',
+    coding: 'dsa',
+    'dsa-coding': 'dsa',
+    'dsa-solver': 'dsa',
+    'dsa-duel': 'dsa',
+    'dsa-com': 'dsa',
+    meet: 'interview',
+  };
+  return legacyMap[clean] || 'command';
 }
 
 export default function App() {
@@ -124,14 +150,20 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingSaving, setOnboardingSaving] = useState(false);
 
-  const [screen, setScreen] = useState<string>(() => {
-    const hash = window.location.hash.replace(/^#/, '');
-    return NAV_ITEMS.some(([id]) => id === hash) ? hash : 'home';
-  });
+  const [screen, setScreen] = useState<ScreenId>(() =>
+    resolveScreenAlias(window.location.hash)
+  );
+  const [aptitudeMode, setAptitudeMode] = useState<'apt' | 'bkt'>('apt');
+  const [practiceTab, setPracticeTab] = useState<
+    'coding' | 'dsa' | 'solver' | 'apt' | 'com' | 'duel'
+  >('coding');
+  const [progressTab, setProgressTab] = useState<
+    'roadmap' | 'jobs' | 'tracker' | 'kit' | 'position' | 'pivot' | 'ach'
+  >('roadmap');
 
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [mentorOpen, setMentorOpen] = useState(false);
-  const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragEnabled, setRagEnabled] = useState(true);
   const [mentorSending, setMentorSending] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -172,11 +204,8 @@ export default function App() {
 
   useEffect(() => {
     const onHash = () => {
-      const h = window.location.hash.replace(/^#/, '');
-      if (NAV_ITEMS.some(([id]) => id === h)) {
-        setScreen(h);
-        window.scrollTo(0, 0);
-      }
+      setScreen(resolveScreenAlias(window.location.hash));
+      window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -210,10 +239,33 @@ export default function App() {
       .finally(() => setBooting(false));
   }, []);
 
-  const navigate = useCallback((id: string) => {
-    setScreen(id);
+  const navigate = useCallback((rawId: string) => {
+    const clean = rawId.replace(/^#/, '');
+    if (clean === 'quiz') {
+      setAptitudeMode('bkt');
+    } else if (clean === 'aptitude') {
+      setAptitudeMode('apt');
+    }
+    if (clean === 'dsa-coding' || clean === 'coding') {
+      setPracticeTab('coding');
+    } else if (clean === 'dsa-solver') {
+      setPracticeTab('solver');
+    } else if (clean === 'dsa-duel') {
+      setPracticeTab('duel');
+    } else if (clean === 'dsa-com') {
+      setPracticeTab('com');
+    } else if (clean === 'dsa') {
+      setPracticeTab('dsa');
+    }
+    if (clean === 'progress-jobs' || clean === 'jobs') {
+      setProgressTab('jobs');
+    } else if (clean === 'progress') {
+      setProgressTab('roadmap');
+    }
+    const next = resolveScreenAlias(clean);
+    setScreen(next);
     setMobileSheetOpen(false);
-    window.location.hash = `#${id}`;
+    window.location.hash = `#${next}`;
     window.scrollTo(0, 0);
   }, []);
 
@@ -279,17 +331,23 @@ export default function App() {
     }
   };
 
-  const handleSaveOnboarding = async (profile: UserProfile) => {
+  const handleSaveOnboarding = async (profile: UserProfile, updatedName?: string) => {
     setOnboardingSaving(true);
     try {
+      if (updatedName && updatedName.trim()) {
+        await api.updateUserName(updatedName.trim());
+      }
       const res = await api.saveOnboarding(profile);
       setState(res.state);
       setShowOnboarding(false);
       await runAgentsAnimation(
-        ['Profiler', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
-        `Roadmap ready for ${res.state.user.role}`
+        ['Understanding your goal', 'Checking your skills', 'Building weekly plan', 'Adding study lessons', 'Roadmap ready'],
+        `Your ${res.state.user.role} Roadmap is ready!`
       );
-      handleRewardEffects(res.reward, 'Welcome aboard');
+      navigate('roadmap');
+      handleRewardEffects(res.reward, 'Roadmap ready');
+      // Automatically launch the guided tour right after onboarding
+      setTourStep(0);
     } catch (err: any) {
       toast(err.message || 'Failed to save profile');
     } finally {
@@ -297,17 +355,73 @@ export default function App() {
     }
   };
 
+  const handleUpdateName = async (name: string) => {
+    try {
+      const res = await api.updateUserName(name);
+      setState(res.state);
+      toast(`Nice to meet you, ${res.state.user.name}!`);
+    } catch (err: any) {
+      toast(err.message || 'Could not update name');
+    }
+  };
+
   const handleSetGoal = async (role: TargetRole) => {
     try {
       const res = await api.setGoal(role);
       setState(res.state);
-      navigate('home');
       await runAgentsAnimation(
         ['Gap Analyst', 'Planner', 'Critic', 'Curator'],
-        `Pivot plan ready for ${role}`
+        `Calibrated for ${role}`
       );
     } catch (err: any) {
       toast(err.message || 'Failed to switch goal');
+    }
+  };
+
+  const handleReplanAgents = async () => {
+    const res = await api.replanAgents();
+    setState(res.state);
+    await runAgentsAnimation(
+      ['Evaluator', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
+      'Roadmap refreshed'
+    );
+  };
+
+  const handleRunAgentAudit = async () => {
+    try {
+      const res = await api.runAgentAudit();
+      setState(res.state);
+      handleRewardEffects(res.reward);
+      toast('Multi-Agent Workspace Audit complete (+15 XP)');
+      return res.audit;
+    } catch (err: any) {
+      toast(err.message || 'Multi-Agent Audit failed');
+      return null;
+    }
+  };
+
+  const handleAutoApplyJobs = async () => {
+    try {
+      await runAgentsAnimation([
+        'Resume Writer',
+        'Resume Verifier',
+        'ATS Analyst',
+        'Auto-Applier',
+      ]);
+      const res = await api.autoApplyJobs(0, 3);
+      setState(res.state);
+      if (res.reward) {
+        handleRewardEffects(res.reward, 'Auto-Applied');
+      }
+      toast(
+        res.result.appliedCount > 0
+          ? `Auto-applied to ${res.result.appliedCount} matching roles`
+          : 'All matching jobs already applied'
+      );
+      return res.result;
+    } catch (err: any) {
+      toast(err.message || 'Auto-apply failed');
+      return null;
     }
   };
 
@@ -373,15 +487,23 @@ export default function App() {
     }
   };
 
+  const handleOpenMentorWithRag = useCallback(() => {
+    if (!ragEnabled) {
+      setRagEnabled(true);
+      api.logRagToggle(true).then((r) => setState(r.state)).catch(() => {});
+    }
+    setMentorOpen(true);
+  }, [ragEnabled]);
+
   const commands = [
-    ...NAV_ITEMS.map(([id, label]) => ({
-      label: `${label} screen`,
-      action: () => navigate(id),
+    ...NAV_ITEMS.map((item) => ({
+      label: `${item.label} (${item.group})`,
+      action: () => navigate(item.id),
     })),
     {
       label: 'Start guided tour',
       action: () => {
-        navigate('home');
+        navigate('command');
         setTourStep(0);
       },
     },
@@ -390,19 +512,12 @@ export default function App() {
       action: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
     },
     {
-      label: 'Ask AI mentor',
-      action: () => setMentorOpen(true),
+      label: 'Ask Built-in RAG Mentor',
+      action: handleOpenMentorWithRag,
     },
     {
       label: 'Run agents: replan roadmap',
-      action: async () => {
-        const res = await api.replanAgents();
-        setState(res.state);
-        await runAgentsAnimation(
-          ['Evaluator', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
-          'Roadmap refreshed'
-        );
-      },
+      action: handleReplanAgents,
     },
   ];
 
@@ -436,10 +551,7 @@ export default function App() {
     );
   }
 
-  const nextStep = state.roadmap[0] || {
-    title: 'JavaScript fundamentals',
-    hours: 12,
-  };
+  const userInitial = (state.user.name || 'U').trim().charAt(0).toUpperCase();
 
   return (
     <>
@@ -457,41 +569,72 @@ export default function App() {
             place1ai
           </div>
 
-          {SIDEBAR_GROUPS.map(([groupName, ids]) => {
-            const items = ids
-              .map((id) => NAV_ITEMS.find((x) => x[0] === id))
-              .filter(Boolean) as Array<[string, string]>;
-            const containsActive = items.some(([id]) => id === screen);
+          <div className="side-cal">
+            <div className="mute" style={{ fontSize: 11, fontWeight: 600 }}>
+              Calibrated for
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 13.5, marginTop: 2 }}>
+              {state.user.role}
+            </div>
+          </div>
+
+          {SIDEBAR_GROUPS.map((groupName) => {
+            const items = NAV_ITEMS.filter((x) => x.group === groupName);
             return (
               <details
                 key={groupName}
                 className="sg"
-                open={containsActive || groupName === 'Plan'}
+                open
               >
-                <summary>
-                  {groupName} <span className="mute">{items.length}</span>
-                </summary>
-                {items.map(([id, label]) => (
-                  <button
-                    key={id}
-                    className={`nv ${screen === id ? 'on' : ''}`}
-                    aria-current={screen === id ? 'page' : undefined}
-                    onClick={() => navigate(id)}
-                  >
-                    <NavIcon id={id} />
-                    {label}
-                  </button>
-                ))}
+                <summary>{groupName}</summary>
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      className={`nv ${screen === item.id ? 'on' : ''}`}
+                      aria-current={screen === item.id ? 'page' : undefined}
+                      onClick={() => navigate(item.id)}
+                    >
+                      <Icon size={17} />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
               </details>
             );
           })}
+
+          <div className="side-foot">
+            <div className="row" style={{ justifyContent: 'space-between', padding: '0 4px' }}>
+              <span className="mute font-mono-num">Lvl {state.user.level}</span>
+              <span className="mute font-mono-num">{state.user.streak.count}d</span>
+            </div>
+            <button
+              className="side-user-btn"
+              onClick={() => setRewardsOpen(true)}
+              title="Open Rewards, Profile & Sign out"
+            >
+              <span className="avatar-sm">{userInitial}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="truncate" style={{ fontWeight: 600, fontSize: 13 }}>
+                  {state.user.name}
+                </div>
+                <div className="mute truncate" style={{ fontSize: 11.5 }}>
+                  {state.user.email || `${state.user.xp} XP · Profile`}
+                </div>
+              </div>
+            </button>
+          </div>
         </nav>
 
         {/* Main Workspace */}
         <main tabIndex={-1}>
           {/* Top Bar */}
           <div className="top">
-            <span className="mute">{state.user.role}</span>
+            <span className="mute">
+              place1ai · {NAV_ITEMS.find((i) => i.id === screen)?.label || 'Command Centre'}
+            </span>
             <span className="sp" />
             <div className="hud">
               <button
@@ -519,7 +662,7 @@ export default function App() {
             <button onClick={() => setPaletteOpen(true)}>Search Ctrl+K</button>
             <button
               onClick={() => {
-                navigate('home');
+                navigate('command');
                 setTourStep(0);
               }}
             >
@@ -533,75 +676,24 @@ export default function App() {
             >
               {theme === 'dark' ? 'Light' : 'Dark'}
             </button>
-            <button className="p" onClick={() => setMentorOpen(true)}>
-              Ask mentor
+            <button className="p" onClick={handleOpenMentorWithRag}>
+              Ask AI Mentor
             </button>
           </div>
 
-          {/* Target Summary Strip */}
-          <div
-            className="pn"
-            style={{
-              display: 'flex',
-              gap: 16,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <span className="mute">Your target</span>
-              <h2 style={{ margin: 0 }}>{state.user.role}</h2>
-              <div className="xp" style={{ margin: '7px 0' }}>
-                <b style={{ width: `${state.readiness}%` }} />
-              </div>
-              <span className="mute font-mono-num">
-                {state.readiness}% ready · Next best step: <b>{nextStep.title}</b> (
-                {nextStep.hours}h)
-              </span>
-            </div>
-            <div className="row" style={{ gap: 8 }}>
-              <button className="p" onClick={() => navigate('learn')}>
-                Start next step
-              </button>
-              <button onClick={() => navigate('quiz')}>Assess</button>
-              <button onClick={() => navigate('jobs')}>Jobs</button>
-              <button onClick={() => navigate('interview')}>Interview</button>
-            </div>
-            <div className="mute" style={{ width: '100%', fontSize: 12 }}>
-              Free resources:{' '}
-              <a
-                href="https://developer.mozilla.org/en-US/docs/Learn"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ marginRight: 12 }}
-              >
-                MDN
-              </a>
-              <a
-                href="https://www.freecodecamp.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ marginRight: 12 }}
-              >
-                freeCodeCamp
-              </a>
-              <a
-                href="https://roadmap.sh"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                roadmap.sh
-              </a>
-            </div>
-          </div>
-
           {/* Active Screen */}
-          {screen === 'home' && (
-            <HomeView
+          {screen === 'command' && (
+            <CommandCentreView
               state={state}
               onNavigate={navigate}
-              onCompleteStage={handleCompleteStage}
-              onClaimChest={handleClaimChest}
+              onSetGoal={handleSetGoal}
+              onUpdateName={handleUpdateName}
+              onOpenMentorWithRag={handleOpenMentorWithRag}
+              onOpenVoiceOnboarding={() => setShowOnboarding(true)}
+              onReplanAgents={handleReplanAgents}
+              onRunAgentAudit={handleRunAgentAudit}
+              onAutoApplyJobs={handleAutoApplyJobs}
+              onStartFastTour={() => setTourStep(0)}
               onToggleQuest={async (quest, checked) => {
                 const res = await api.toggleProgress({
                   kind: 'quests',
@@ -612,81 +704,110 @@ export default function App() {
                 setState(res.state);
                 if (checked) {
                   handleRewardEffects(res.reward, '+20 XP');
-                  toast('+20 XP: quest completed');
+                  toast('+20 XP: goal checked off');
                 }
-              }}
-              onOpenOnboarding={() => setShowOnboarding(true)}
-            />
-          )}
-
-          {screen === 'position' && (
-            <PositionView state={state} onSetGoal={handleSetGoal} />
-          )}
-
-          {screen === 'map' && (
-            <SkillMapView
-              state={state}
-              onAssessSkill={(skill) => {
-                setQuizSkill(skill);
-                navigate('quiz');
               }}
             />
           )}
 
           {screen === 'roadmap' && (
-            <RoadmapView
-              state={state}
-              onNavigate={navigate}
-              onReorder={handleReorderRoadmap}
-              onCompleteStage={handleCompleteStage}
-              onClaimChest={handleClaimChest}
-            />
+            <div>
+              <div className="pn glass-hero" style={{ marginBottom: 14 }}>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div>
+                    <h2 style={{ margin: 0 }}>Your Personalized Career Roadmap</h2>
+                    <span className="mute">
+                      Built for <b>{state.user.role}</b> · Update your goal anytime with Voice Onboarding.
+                    </span>
+                  </div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <button onClick={() => setShowOnboarding(true)}>
+                      Voice Roadmap Finder
+                    </button>
+                    <button className="p" onClick={handleReplanAgents}>
+                      Refresh Plan
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <RoadmapView
+                state={state}
+                onNavigate={navigate}
+                onReorder={handleReorderRoadmap}
+                onCompleteStage={handleCompleteStage}
+                onClaimChest={handleClaimChest}
+              />
+            </div>
           )}
 
-          {screen === 'learn' && (
-            <LearnView
+          {screen === 'resume' && (
+            <ResumeAnalyzerView
               state={state}
               onNavigate={navigate}
-              onToggleResource={async (id, checked) => {
-                const res = await api.toggleProgress({
-                  kind: 'resources',
-                  item: id,
-                  checked,
-                  xpAmount: 15,
-                });
+              onStateUpdate={setState}
+              onToast={toast}
+              onSaveResume={async (resume) => {
+                const res = await api.updateResume(resume);
                 setState(res.state);
-                if (checked) {
-                  handleRewardEffects(res.reward);
-                  toast('+15 XP: resource completed');
-                }
+              }}
+              onAddKeyword={async (kw) => {
+                const res = await api.addResumeKeyword(kw);
+                setState(res.state);
+                toast(`${kw} added as learning`);
+              }}
+              onTailorResume={async (jobId) => {
+                const res = await api.tailorResume(jobId);
+                setState(res.state);
+                toast('Tailored resume saved to SQLite');
+              }}
+              onApplyJob={async (jobId) => {
+                await runAgentsAnimation([
+                  'Resume Writer',
+                  'Resume Verifier',
+                  'ATS Analyst',
+                ]);
+                const res = await api.applyJob(jobId);
+                setState(res.state);
+                handleRewardEffects(res.reward, 'Applied');
+                toast('+50 XP: application sent');
               }}
             />
           )}
 
-          {screen === 'quiz' && (
-            <QuizView
-              initialSkill={quizSkill}
-              onNavigate={navigate}
-              onSubmitQuiz={async (answers, skillKey, answerKeys) => {
-                const res = await api.submitQuiz(answers, skillKey, answerKeys);
-                setState(res.state);
-                if (res.replanned) {
-                  await runAgentsAnimation(
-                    ['Evaluator', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
-                    `Roadmap v${res.state.user.roadmapVersion} ready`
-                  );
-                } else if (res.score >= 2) {
-                  handleRewardEffects(res.reward, 'Assessment passed');
-                  toast('+40 XP: assessment passed');
-                }
-                return res;
+          {screen === 'tutortree' && (
+            <TutorTreeView
+              state={state}
+              onStateUpdate={setState}
+              onAssessSkill={(skill) => {
+                setQuizSkill(skill);
+                setAptitudeMode('bkt');
+                navigate('quiz');
               }}
             />
           )}
 
-          {screen === 'practice' && (
+          {screen === 'rag' && (
+            <RagHubView
+              state={state}
+              onStateUpdate={setState}
+              onOpenMentorWithRag={handleOpenMentorWithRag}
+            />
+          )}
+
+          {screen === 'agents' && (
+            <AgentsView
+              state={state}
+              onReplan={handleReplanAgents}
+              onStateUpdate={setState}
+              onToast={toast}
+            />
+          )}
+
+          {screen === 'dsa' && (
             <PracticeView
               state={state}
+              initialTab={practiceTab}
+              onStateUpdate={setState}
               onToast={toast}
               onToggleDsa={async (slug, solved) => {
                 const res = await api.toggleDsa(slug, solved);
@@ -723,41 +844,25 @@ export default function App() {
             />
           )}
 
-          {screen === 'res' && <ResourcesView state={state} onToast={toast} />}
-
-          {screen === 'meet' && (
-            <MeetView
+          {screen === 'concepts' && (
+            <CoreConceptsView
               state={state}
+              onNavigate={navigate}
+              onStateUpdate={setState}
               onToast={toast}
-              onAddMeeting={async (topic, whenMs, link) => {
-                const res = await api.addMeeting(topic, whenMs, link);
-                setState(res.state);
-                handleRewardEffects(res.reward);
-                toast('Session scheduled');
-              }}
-              onDeleteMeeting={async (id) => {
-                const res = await api.deleteMeeting(id);
-                setState(res.state);
-              }}
-              onRewardEvent={async (kind) => {
+              onToggleResource={async (id, checked) => {
                 const res = await api.toggleProgress({
-                  kind,
-                  xpAmount: kind === 'precall' ? 20 : 10,
+                  kind: 'resources',
+                  item: id,
+                  checked,
+                  xpAmount: 15,
                 });
                 setState(res.state);
-                handleRewardEffects(res.reward);
-                toast(
-                  kind === 'precall'
-                    ? '+20 XP: ready for the call'
-                    : '+10 XP: joined session'
-                );
+                if (checked) {
+                  handleRewardEffects(res.reward);
+                  toast('+15 XP: resource completed');
+                }
               }}
-            />
-          )}
-
-          {screen === 'study' && (
-            <StudyView
-              state={state}
               onCompleteFocus={async (minutes) => {
                 const res = await api.completeFocus(minutes);
                 setState(res.state);
@@ -786,31 +891,149 @@ export default function App() {
             />
           )}
 
-          {screen === 'resume' && (
-            <ResumeView
+          {screen === 'interview' && (
+            <MockInterviewsView
+              state={state}
+              initialType={interviewPreType}
+              onNavigate={navigate}
+              onToast={toast}
+              onEvaluateInterview={async (type, qaPairs) => {
+                try {
+                  const res = await api.evaluateInterview(type, qaPairs);
+                  setState(res.state);
+                  handleRewardEffects(res.reward, 'Interview complete');
+                  toast('+60 XP: interview scored & saved');
+                  return (
+                    res.state.interviews[res.state.interviews.length - 1] || null
+                  );
+                } catch (err: any) {
+                  toast(err.message || 'Evaluation failed');
+                  return null;
+                }
+              }}
+              onAddMeeting={async (topic, whenMs, link) => {
+                const res = await api.addMeeting(topic, whenMs, link);
+                setState(res.state);
+                handleRewardEffects(res.reward);
+                toast('Session scheduled');
+              }}
+              onDeleteMeeting={async (id) => {
+                const res = await api.deleteMeeting(id);
+                setState(res.state);
+              }}
+              onRewardEvent={async (kind) => {
+                const res = await api.toggleProgress({
+                  kind,
+                  xpAmount: kind === 'precall' ? 20 : 10,
+                });
+                setState(res.state);
+                handleRewardEffects(res.reward);
+                toast(
+                  kind === 'precall'
+                    ? '+20 XP: ready for the call'
+                    : '+10 XP: joined session'
+                );
+              }}
+            />
+          )}
+
+          {screen === 'aptitude' && (
+            <AptitudeLabView
+              state={state}
+              initialSkill={quizSkill}
+              initialMode={aptitudeMode}
+              onNavigate={navigate}
+              onToast={toast}
+              onSubmitQuiz={async (answers, skillKey, answerKeys) => {
+                const res = await api.submitQuiz(answers, skillKey, answerKeys);
+                setState(res.state);
+                if (res.replanned) {
+                  await runAgentsAnimation(
+                    ['Evaluator', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
+                    `Roadmap v${res.state.user.roadmapVersion} ready`
+                  );
+                } else if (res.score >= 2) {
+                  handleRewardEffects(res.reward, 'Assessment passed');
+                  toast('+40 XP: assessment passed');
+                }
+                return res;
+              }}
+              onToggleDsa={async (slug, solved) => {
+                const res = await api.toggleDsa(slug, solved);
+                setState(res.state);
+                if (solved) {
+                  handleRewardEffects(res.reward);
+                  toast('+10 XP: problem solved');
+                }
+              }}
+              onSubmitAptitude={async (score) => {
+                const res = await api.submitAptitude(score);
+                setState(res.state);
+                handleRewardEffects(res.reward, 'Aptitude complete');
+                toast(`Aptitude test saved: ${score}/10`);
+              }}
+              onPromptDuel={async (topic, userPrompt) => {
+                const res = await api.runPromptDuel(topic, userPrompt);
+                setState(res.state);
+                handleRewardEffects(
+                  res.reward,
+                  res.result.winner === 'user' ? 'Duel won' : undefined
+                );
+                toast(
+                  res.result.winner === 'user'
+                    ? '+30 XP: Prompt Duel won'
+                    : '+10 XP: Prompt Duel completed'
+                );
+                return res.result;
+              }}
+              onLaunchInterview={(type) => {
+                setInterviewPreType(type);
+                navigate('interview');
+              }}
+            />
+          )}
+
+          {screen === 'daily' && (
+            <DailyChallengeView
               state={state}
               onNavigate={navigate}
-              onSaveResume={async (resume) => {
-                const res = await api.updateResume(resume);
+              onClaimChest={handleClaimChest}
+              onSubmitChallenge={async (challengeId, answerIndex) => {
+                const res = await api.submitDailyChallenge(challengeId, answerIndex);
                 setState(res.state);
+                if (res.reward) {
+                  handleRewardEffects(res.reward, '+45 XP');
+                  toast('+45 XP: Daily Challenge completed');
+                }
+                return res;
+              }}
+              onToggleQuest={async (quest, checked) => {
+                const res = await api.toggleProgress({
+                  kind: 'quests',
+                  item: quest,
+                  checked,
+                  xpAmount: 20,
+                });
+                setState(res.state);
+                if (checked) {
+                  handleRewardEffects(res.reward, '+20 XP');
+                  toast('+20 XP: quest completed');
+                }
               }}
             />
           )}
 
-          {screen === 'ats' && (
-            <AtsLabView
+          {screen === 'progress' && (
+            <MyProgressHubView
               state={state}
-              onAddKeyword={async (kw) => {
-                const res = await api.addResumeKeyword(kw);
-                setState(res.state);
-                toast(`${kw} added as learning`);
-              }}
-            />
-          )}
-
-          {screen === 'jobs' && (
-            <JobsView
-              state={state}
+              initialTab={progressTab}
+              onNavigate={navigate}
+              onStateUpdate={setState}
+              onReorderRoadmap={handleReorderRoadmap}
+              onCompleteStage={handleCompleteStage}
+              onClaimChest={handleClaimChest}
+              onSetGoal={handleSetGoal}
+              onToast={toast}
               onTailorResume={async (jobId) => {
                 const res = await api.tailorResume(jobId);
                 setState(res.state);
@@ -828,36 +1051,22 @@ export default function App() {
                 handleRewardEffects(res.reward, 'Applied');
                 toast('+50 XP: application sent');
               }}
-            />
-          )}
-
-          {screen === 'track' && (
-            <TrackerView
-              state={state}
-              onToast={toast}
-              onAdd={async (company, role) => {
+              onAddTracker={async (company, role) => {
                 const res = await api.addTracker(company, role);
                 setState(res.state);
                 toast('Application added');
               }}
-              onMove={async (id, stage: TrackerStage) => {
+              onMoveTracker={async (id, stage: TrackerStage) => {
                 const res = await api.moveTracker(id, stage);
                 setState(res.state);
                 if (res.reward) {
                   handleRewardEffects(res.reward, stage);
                 }
               }}
-              onDelete={async (id) => {
+              onDeleteTracker={async (id) => {
                 const res = await api.deleteTracker(id);
                 setState(res.state);
               }}
-            />
-          )}
-
-          {screen === 'kit' && (
-            <CareerKitView
-              state={state}
-              onToast={toast}
               onToggleProject={async (title, checked) => {
                 const res = await api.toggleProgress({
                   kind: 'projects',
@@ -877,45 +1086,12 @@ export default function App() {
             />
           )}
 
-          {screen === 'interview' && (
-            <InterviewView
-              state={state}
-              initialType={interviewPreType}
-              onNavigate={navigate}
-              onToast={toast}
-              onEvaluateInterview={async (type, qaPairs) => {
-                try {
-                  const res = await api.evaluateInterview(type, qaPairs);
-                  setState(res.state);
-                  handleRewardEffects(res.reward, 'Interview complete');
-                  toast('+60 XP: interview scored & saved');
-                  return (
-                    res.state.interviews[res.state.interviews.length - 1] || null
-                  );
-                } catch (err: any) {
-                  toast(err.message || 'Evaluation failed');
-                  return null;
-                }
-              }}
-            />
+          {screen === 'analytics' && (
+            <AnalyticsView state={state} onNavigate={navigate} />
           )}
 
-          {screen === 'pivot' && <PivotView state={state} onSetGoal={handleSetGoal} />}
-
-          {screen === 'ach' && <AchievementsView state={state} />}
-
-          {screen === 'agents' && (
-            <AgentsView
-              state={state}
-              onReplan={async () => {
-                const res = await api.replanAgents();
-                setState(res.state);
-                await runAgentsAnimation(
-                  ['Evaluator', 'Gap Analyst', 'Planner', 'Critic', 'Curator'],
-                  'Roadmap refreshed'
-                );
-              }}
-            />
+          {screen === 'leaderboard' && (
+            <LeaderboardView state={state} onNavigate={navigate} />
           )}
         </main>
       </div>
@@ -923,15 +1099,16 @@ export default function App() {
       {/* Mobile Bottom Nav */}
       <nav className="bnav" aria-label="Main mobile">
         {MOBILE_TABS.map((id) => {
-          const item = NAV_ITEMS.find((x) => x[0] === id)!;
+          const item = NAV_ITEMS.find((x) => x.id === id)!;
+          const Icon = item.icon;
           return (
             <button
               key={id}
               className={`tab ${screen === id ? 'on' : ''}`}
               onClick={() => navigate(id)}
             >
-              <NavIcon id={id} />
-              <span>{item[1]}</span>
+              <Icon size={18} />
+              <span className="truncate">{item.label.split(' ')[0]}</span>
             </button>
           );
         })}
@@ -939,37 +1116,38 @@ export default function App() {
           className="tab"
           onClick={() => setMobileSheetOpen((v) => !v)}
         >
-          <NavIcon id="agents" />
+          <Bot size={18} />
           <span>More</span>
         </button>
       </nav>
 
       {/* Mobile Overflow Sheet */}
       <div className={`sheet ${mobileSheetOpen ? 'open' : ''}`}>
-        {NAV_ITEMS.filter(([id]) => !MOBILE_TABS.includes(id)).map(
-          ([id, label]) => (
+        {NAV_ITEMS.filter((i) => !MOBILE_TABS.includes(i.id)).map((item) => {
+          const Icon = item.icon;
+          return (
             <button
-              key={id}
-              className={`nv ${screen === id ? 'on' : ''}`}
-              onClick={() => navigate(id)}
+              key={item.id}
+              className={`nv ${screen === item.id ? 'on' : ''}`}
+              onClick={() => navigate(item.id)}
             >
-              <NavIcon id={id} />
-              <span>{label}</span>
+              <Icon size={17} />
+              <span>{item.label}</span>
             </button>
-          )
-        )}
+          );
+        })}
       </div>
 
       {/* Floating Mentor Trigger + Speed Button */}
       <button
         className="p chat-fab"
-        onClick={() => setMentorOpen(true)}
+        onClick={handleOpenMentorWithRag}
         aria-label="Open chatbot"
       >
         <span style={{ width: 18, height: 18, display: 'inline-block' }}>
           <BrandLogo />
         </span>
-        AI Mentor · RAG
+        AI Mentor
       </button>
 
       <button
@@ -1037,22 +1215,22 @@ export default function App() {
       <GuidedTourOverlay
         stepIndex={tourStep}
         onStep={(idx) => {
-          const screens = ['home', 'home', 'map', 'roadmap', 'resume', 'home'];
-          navigate(screens[idx] || 'home');
+          const targetScreen = TOUR_STEPS[idx]?.screen || 'command';
+          navigate(targetScreen);
           setTourStep(idx);
         }}
-        onOpenRagMentor={() => {
-          if (!ragEnabled) handleToggleRag();
-          setMentorOpen(true);
-        }}
+        onOpenRagMentor={handleOpenMentorWithRag}
+        onOpenVoiceOnboarding={() => setShowOnboarding(true)}
         onClose={() => setTourStep(null)}
       />
 
       {showOnboarding && (
         <OnboardingModal
+          initialName={state.user.name}
           initialProfile={state.user.prof}
           saving={onboardingSaving}
           onSave={handleSaveOnboarding}
+          onCancel={state.user.prof ? () => setShowOnboarding(false) : undefined}
           onToast={toast}
         />
       )}

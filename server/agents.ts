@@ -91,6 +91,8 @@ export function computePivotDiff(
   );
 
   const insightMap: Record<TargetRole, string> = {
+    'Frontend Engineer':
+      'React (62%), TypeScript (58%), CSS/Tailwind (44%), and Web Accessibility anchor Frontend Engineer interviews.',
     'Data Analyst':
       'SQL is the top skill in Data Analyst postings (60 to 71%), and three in four expect a BI tool.',
     'Full Stack Developer':

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import {
@@ -14,6 +15,8 @@ import type {
   AtsBreakdown,
   BoostInventory,
   ChatMessage,
+  CustomAgentRecord,
+  CustomRagDoc,
   FocusStats,
   InterviewScore,
   InterviewSessionRecord,
@@ -29,7 +32,9 @@ import type {
   UserProfile,
 } from '../src/types.ts';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'place1ai-data')
+  : path.resolve(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -166,7 +171,44 @@ CREATE TABLE IF NOT EXISTS agent_debates (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS xp_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  source TEXT NOT NULL DEFAULT 'activity',
+  day_iso TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS rag_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS custom_agents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  role_focus TEXT NOT NULL,
+  mission TEXT NOT NULL,
+  tools_json TEXT NOT NULL DEFAULT '[]',
+  last_output TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 `);
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN daily_challenge_date TEXT NOT NULL DEFAULT ''");
+} catch {
+  // column already exists
+}
 
 export const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
@@ -269,6 +311,13 @@ export function findOrCreateUser(params: {
     .run(token, displayName, cleanEmail, streakInit);
   const userId = Number(info.lastInsertRowid);
 
+  db.prepare('INSERT INTO xp_events (user_id, amount, source, day_iso) VALUES (?, ?, ?, ?)').run(
+    userId,
+    40,
+    'welcome',
+    today
+  );
+
   const insertSkill = db.prepare(
     'INSERT INTO user_skills (user_id, skill_key, mastery) VALUES (?, ?, ?)'
   );
@@ -369,7 +418,8 @@ export function awardXpAndEvaluateBadges(
   userId: number,
   xpDelta: number,
   coinDelta = 0,
-  starDelta = 0
+  starDelta = 0,
+  source = 'activity'
 ): { xp: number; leveledUp: boolean; newlyUnlockedBadges: string[] } {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
   if (!user) return { xp: 0, leveledUp: false, newlyUnlockedBadges: [] };
@@ -386,6 +436,15 @@ export function awardXpAndEvaluateBadges(
     nextStar,
     userId
   );
+
+  if (xpDelta > 0) {
+    db.prepare('INSERT INTO xp_events (user_id, amount, source, day_iso) VALUES (?, ?, ?, ?)').run(
+      userId,
+      xpDelta,
+      source,
+      todayIso()
+    );
+  }
 
   // Evaluate badges
   const dsaCount = (
@@ -603,6 +662,136 @@ export function getAppState(userId: number): AppState {
     { name: 'Divya', score: 760, isMe: false },
   ].sort((a, b) => b.score - a.score);
 
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const now = new Date();
+  const sunday = new Date(now);
+  sunday.setHours(0, 0, 0, 0);
+  sunday.setDate(now.getDate() - now.getDay());
+
+  const weekDates = dayNames.map((day, idx) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + idx);
+    return { day, date: d.toISOString().slice(0, 10) };
+  });
+
+  const xpRows = db
+    .prepare(
+      'SELECT day_iso, SUM(amount) as total FROM xp_events WHERE user_id = ? AND day_iso >= ? GROUP BY day_iso'
+    )
+    .all(userId, weekDates[0].date) as Array<{ day_iso: string; total: number }>;
+  const xpByDate = new Map(xpRows.map((r) => [r.day_iso, Number(r.total || 0)]));
+
+  const velocityDays = weekDates.map((w) => ({
+    day: w.day,
+    date: w.date,
+    xp: xpByDate.get(w.date) || 0,
+  }));
+  const totalWeek = velocityDays.reduce((a, b) => a + b.xp, 0);
+
+  const completedQuests = parseJson<string[]>(u.completed_quests_json, []);
+  const focus = parseJson<FocusStats>(u.focus_json, { sessions: 0, minutes: 0 });
+  const dailyChallengeDone = u.daily_challenge_date === todayIso();
+  const todayTasks = [
+    {
+      id: 'task-daily',
+      title: 'Complete Daily Challenge',
+      done: dailyChallengeDone,
+      screen: 'daily',
+    },
+    {
+      id: 'task-dsa',
+      title: 'Solve a DSA problem',
+      done: dsaSolved.length > 0,
+      screen: 'dsa',
+    },
+    {
+      id: 'task-rag',
+      title: 'Query Built-in RAG Mentor',
+      done: chatMessages.some((m) => m.sender === 'user'),
+      screen: 'rag',
+    },
+    {
+      id: 'task-quest',
+      title: 'Complete a study quest or focus sprint',
+      done: completedQuests.length >= 2 || (focus.sessions || 0) > 0,
+      screen: 'daily',
+    },
+  ];
+
+  const customDocRows = db
+    .prepare('SELECT id, title, content, created_at FROM rag_documents WHERE user_id = ? ORDER BY id DESC')
+    .all(userId) as Array<{ id: number; title: string; content: string; created_at: string }>;
+
+  const customRagDocs: CustomRagDoc[] = customDocRows.map((d) => ({
+    id: d.id,
+    title: d.title,
+    content: d.content,
+    createdAt: d.created_at,
+  }));
+
+  const ragChunks = [
+    {
+      id: 'Resume',
+      preview: `${resume.name} · ${resume.skills}`,
+      tokens: `${resume.summary} ${resume.skills} ${resume.experience}`.split(/\s+/).filter(Boolean).length,
+    },
+    {
+      id: 'Skill twin',
+      preview: `${readiness}% overall readiness · Target: ${u.role}`,
+      tokens: skillKeys.length * 4,
+    },
+    {
+      id: 'Roadmap',
+      preview: `v${u.roadmap_version} · ${roadmap.length} steps (${roadmap.map((s) => s.title).slice(0, 2).join(', ')})`,
+      tokens: roadmap.length * 6,
+    },
+    {
+      id: 'ATS',
+      preview: `Score ${ats.score}/100 · ${ats.miss.length} missing keywords`,
+      tokens: ats.hit.length + ats.miss.length + 12,
+    },
+    {
+      id: 'Jobs',
+      preview: `${jobs.length} calibrated roles matched (${jobs.map((j) => `${j.company} ${j.fit}%`).join(', ')})`,
+      tokens: jobs.length * 8,
+    },
+    {
+      id: 'Market: 2026 Postings',
+      preview: 'Frontend 9.1K · Full Stack 7.3K · Data Analyst 6.4K postings indexed',
+      tokens: 52,
+    },
+    ...customRagDocs.map((d) => ({
+      id: `Note: ${d.title}`,
+      preview: d.content.slice(0, 120) + (d.content.length > 120 ? '…' : ''),
+      tokens: d.content.split(/\s+/).filter(Boolean).length,
+      customDocId: d.id,
+    })),
+  ];
+
+  const customAgentRows = db
+    .prepare(
+      'SELECT id, name, role_focus, mission, tools_json, last_output, created_at FROM custom_agents WHERE user_id = ? ORDER BY id DESC'
+    )
+    .all(userId) as Array<{
+    id: number;
+    name: string;
+    role_focus: string;
+    mission: string;
+    tools_json: string;
+    last_output: string;
+    created_at: string;
+  }>;
+
+  const customAgents: CustomAgentRecord[] = customAgentRows.map((a) => ({
+    id: a.id,
+    name: a.name,
+    roleFocus: a.role_focus,
+    mission: a.mission,
+    tools: parseJson<string[]>(a.tools_json, []),
+    lastOutput: a.last_output,
+    createdAt: a.created_at,
+  }));
+
   return {
     user: {
       id: u.id,
@@ -615,17 +804,18 @@ export function getAppState(userId: number): AppState {
       star: u.star,
       stage: u.stage,
       chestClaimedToday: u.chest_claimed_date === todayIso(),
+      dailyChallengeDone,
       boost: parseJson<BoostInventory>(u.boost_json, { hint: 2, xp: 1, shield: 1 }),
       prof: parseJson<UserProfile | null>(u.prof_json, null),
       roadmapVersion: u.roadmap_version,
       aptitudeBest: u.aptitude_best,
       badgesUnlocked: parseJson<string[]>(u.badges_json, []),
       streak: parseJson<StreakData>(u.streak_json, { date: todayIso(), count: 1 }),
-      focus: parseJson<FocusStats>(u.focus_json, { sessions: 0, minutes: 0 }),
+      focus,
       completedResources: parseJson<string[]>(u.completed_resources_json, []),
       completedProjects: parseJson<string[]>(u.completed_projects_json, []),
       weeklyDone: parseJson<string[]>(u.weekly_done_json, []),
-      completedQuests: parseJson<string[]>(u.completed_quests_json, []),
+      completedQuests,
     },
     skills,
     readiness,
@@ -641,5 +831,13 @@ export function getAppState(userId: number): AppState {
     agentDebate,
     chatMessages,
     leaderboard,
+    xpVelocity: {
+      totalWeek,
+      days: velocityDays,
+    },
+    todayTasks,
+    ragChunks,
+    customRagDocs,
+    customAgents,
   };
 }

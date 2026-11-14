@@ -1,10 +1,18 @@
 import type {
+  AgentAuditResult,
+  AiProblemSolution,
   AppState,
+  AtsAiAudit,
+  AutoApplyResult,
   BoostInventory,
+  CodeGradeResult,
+  CustomAgentRunResult,
   InterviewScore,
   InterviewType,
+  OnboardingRecommendation,
   PivotDiff,
   PromptDuelResult,
+  RagQueryResult,
   SkillKey,
   SkillQuizQuestion,
   TargetRole,
@@ -88,6 +96,23 @@ export const api = {
       body: JSON.stringify(profile),
     }),
 
+  updateUserName: (name: string) =>
+    req<{ state: AppState }>('/api/user/name', {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  recommendOnboardingRoadmap: (payload: {
+    transcript: string;
+    interests: string[];
+    level: string;
+    hours: number;
+  }) =>
+    req<{ recommendation: OnboardingRecommendation }>('/api/onboarding/recommend', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   setGoal: (role: TargetRole) =>
     req<{ state: AppState }>('/api/goal', {
       method: 'POST',
@@ -144,6 +169,30 @@ export const api = {
       }
     ),
 
+  solveDsaProblem: (problem: string, language?: string, userApproach?: string) =>
+    req<{ solution: AiProblemSolution; reward: RewardResult; state: AppState }>(
+      '/api/practice/solve',
+      {
+        method: 'POST',
+        body: JSON.stringify({ problem, language, userApproach }),
+      }
+    ),
+
+  gradeCodingSubmission: (payload: {
+    problemTitle: string;
+    language: string;
+    code: string;
+    passedTests: number;
+    totalTests: number;
+  }) =>
+    req<{ grade: CodeGradeResult; reward: RewardResult; state: AppState }>(
+      '/api/practice/grade-code',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    ),
+
   updateResume: (resume: {
     name: string;
     summary: string;
@@ -154,6 +203,15 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(resume),
     }),
+
+  generateResumeDraft: (highlightNote?: string) =>
+    req<{ usedGemini: boolean; reward: RewardResult; state: AppState }>(
+      '/api/resume/generate',
+      {
+        method: 'POST',
+        body: JSON.stringify({ highlightNote }),
+      }
+    ),
 
   addResumeKeyword: (keyword: string) =>
     req<{ state: AppState }>('/api/resume/keyword', {
@@ -172,6 +230,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ jobId }),
     }),
+
+  autoApplyJobs: (minFit = 0, limit = 3) =>
+    req<{ result: AutoApplyResult; reward: RewardResult | null; state: AppState }>(
+      '/api/jobs/auto-apply',
+      {
+        method: 'POST',
+        body: JSON.stringify({ minFit, limit }),
+      }
+    ),
 
   addTracker: (company: string, role?: string) =>
     req<{ state: AppState }>('/api/tracker', {
@@ -284,5 +351,104 @@ export const api = {
     req<{ state: AppState }>('/api/mentor/rag-log', {
       method: 'POST',
       body: JSON.stringify({ enabled }),
+    }),
+
+  queryRag: (query: string) =>
+    req<{ result: RagQueryResult; state: AppState }>('/api/rag/query', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    }),
+
+  ingestRagDoc: (title: string, content: string) =>
+    req<{ docId: number; reward: RewardResult; state: AppState }>('/api/rag/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ title, content }),
+    }),
+
+  deleteRagDoc: (id: number) =>
+    req<{ state: AppState }>(`/api/rag/ingest/${id}`, {
+      method: 'DELETE',
+    }),
+
+  analyzeAts: (jobDescription?: string) =>
+    req<{ audit: AtsAiAudit; state: AppState }>('/api/ats/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ jobDescription }),
+    }),
+
+  getInterviewFollowUp: (payload: {
+    type: InterviewType;
+    question: string;
+    answer: string;
+  }) =>
+    req<{ followUp: string; usedGemini: boolean }>('/api/interview/followup', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getInterviewCoachHint: (payload: {
+    type: InterviewType;
+    persona: string;
+    question: string;
+    currentAnswer: string;
+  }) =>
+    req<{ hint: string; starDraft: string; usedGemini: boolean }>('/api/interview/coach-hint', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  converseInterviewTurn: (payload: {
+    type: InterviewType;
+    persona: string;
+    currentPrompt: string;
+    userUtterance: string;
+    nextQuestion: string | null;
+    turnIndex: number;
+  }) =>
+    req<{ replyText: string; nextPrompt: string; done: boolean; usedGemini: boolean }>(
+      '/api/interview/turn',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    ),
+
+  runAgentAudit: () =>
+    req<{ audit: AgentAuditResult; reward: RewardResult; state: AppState }>(
+      '/api/agents/audit',
+      {
+        method: 'POST',
+      }
+    ),
+
+  runCustomAgent: (payload: {
+    name: string;
+    roleFocus: string;
+    mission: string;
+    tools: string[];
+  }) =>
+    req<{ result: CustomAgentRunResult; reward: RewardResult; state: AppState }>(
+      '/api/agents/custom-run',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    ),
+
+  deleteCustomAgent: (id: number) =>
+    req<{ state: AppState }>(`/api/agents/custom/${id}`, {
+      method: 'DELETE',
+    }),
+
+  submitDailyChallenge: (challengeId: string, answerIndex: number) =>
+    req<{
+      correct: boolean;
+      explanation: string;
+      alreadyDone: boolean;
+      reward: RewardResult | null;
+      state: AppState;
+    }>('/api/daily/submit', {
+      method: 'POST',
+      body: JSON.stringify({ challengeId, answerIndex }),
     }),
 };

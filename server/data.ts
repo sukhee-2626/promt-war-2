@@ -32,6 +32,13 @@ export const DEFAULT_SKILLS: Record<SkillKey, number> = {
 };
 
 export const ROLE_PLANS: Record<TargetRole, Array<{ skillKey: SkillKey; title: string; hours: number }>> = {
+  'Frontend Engineer': [
+    { skillKey: 'html', title: 'Semantic HTML, CSS & Accessibility', hours: 8 },
+    { skillKey: 'js', title: 'JavaScript ES6+ & Async Runtime', hours: 12 },
+    { skillKey: 'js', title: 'TypeScript Type Systems', hours: 8 },
+    { skillKey: 'react', title: 'React Components, Hooks & State', hours: 16 },
+    { skillKey: 'git', title: 'Frontend Testing, Vite & Git CI', hours: 8 },
+  ],
   'Full Stack Developer': [
     { skillKey: 'js', title: 'JavaScript fundamentals', hours: 12 },
     { skillKey: 'js', title: 'TypeScript essentials', hours: 8 },
@@ -82,6 +89,13 @@ export const JD_KEYWORDS = [
 ];
 
 export const POSITION_MARKET_DATA = [
+  {
+    role: 'Frontend Engineer' as TargetRole,
+    demand: '9,120 postings',
+    tagline: 'Interfaces, React and web performance',
+    stack: 'React, TypeScript, Accessibility',
+    insight: 'React 62%, TypeScript 58%, Tailwind/CSS 44%, Core Web Vitals & testing in 39% of Frontend listings.',
+  },
   {
     role: 'Full Stack Developer' as TargetRole,
     demand: '7,309 postings',
@@ -260,6 +274,11 @@ export const FLASHCARDS: Record<string, Array<[string, string]>> = {
 };
 
 export const PORTFOLIO_PROJECTS: Record<string, Array<[string, string, string, string]>> = {
+  'Frontend Engineer': [
+    ['Accessible Design System Kit', 'Beginner', 'React, TypeScript, ARIA', 'Reusable keyboard-navigable components with tokens'],
+    ['Interactive Data Explorer', 'Intermediate', 'React, SVG Charts, Vite', 'Virtualized tables, live filters, and responsive charts'],
+    ['Collaborative Canvas Workspace', 'Advanced', 'React, WebSockets, State', 'Optimistic updates, undo/redo stack, and offline cache'],
+  ],
   'Full Stack Developer': [
     ['Task manager with login', 'Beginner', 'HTML, JavaScript, localStorage', 'CRUD tasks, filters and a clean responsive interface'],
     ['Expense tracker with charts', 'Intermediate', 'React, Node.js, SQL', 'Authentication, a REST API and a monthly spending chart'],
@@ -288,6 +307,10 @@ export const PORTFOLIO_PROJECTS: Record<string, Array<[string, string, string, s
 };
 
 export const CERTIFICATIONS: Record<string, Array<[string, string, string, string]>> = {
+  'Frontend Engineer': [
+    ['Meta Front-End Developer Certificate', 'Coursera', 'https://www.coursera.org/professional-certificates/meta-front-end-developer', 'React, UI/UX, and version control'],
+    ['Responsive Web Design & JS', 'freeCodeCamp', 'https://www.freecodecamp.org/learn', 'Free and project based'],
+  ],
   'Full Stack Developer': [
     ['freeCodeCamp certifications', 'freeCodeCamp', 'https://www.freecodecamp.org/learn', 'Free and project based'],
     ['Meta developer certificates', 'Coursera', 'https://www.coursera.org/search?query=meta%20developer%20professional%20certificate', 'Check current catalog and financial aid'],
@@ -379,3 +402,153 @@ export const INTERVIEW_TIPS: Record<string, string> = {
   'Relevance and depth': 'Answer the exact question and add one concrete detail or number.',
   Confidence: 'State decisions directly instead of hedging with “I think” or “maybe”.',
 };
+
+export const CALIBRATION_QUOTES = [
+  {
+    quote: 'Your résumé is a story. Make sure every line earns its place.',
+    author: 'place1ai RAG Mentor',
+  },
+  {
+    quote: 'Master the prerequisite before the framework; Critic verifies every dependency.',
+    author: 'place1ai Multi-Agent Engine',
+  },
+  {
+    quote: 'Small daily BKT calibration beats passive binge-watching every week.',
+    author: 'place1ai Skill Twin',
+  },
+];
+
+export const DAILY_CHALLENGES = [
+  {
+    id: 'dc-event-loop',
+    title: 'JavaScript Event Loop & Microtasks',
+    topic: 'Frontend & Runtime',
+    xp: 45,
+    prompt:
+      'In a browser runtime, console.log("A"), setTimeout(fn, 0), and Promise.resolve().then(fn2) are queued in that exact order inside a synchronous script. Which order logs to the console?',
+    options: [
+      'A → setTimeout → Promise',
+      'A → Promise → setTimeout',
+      'Promise → A → setTimeout',
+      'setTimeout → Promise → A',
+    ],
+    answerIndex: 1,
+    explanation:
+      'Synchronous code executes first ("A"), then the microtask queue drains completely (Promise callback) before the next macrotask (setTimeout).',
+  },
+  {
+    id: 'dc-react-keys',
+    title: 'React Reconciliation & Stable Keys',
+    topic: 'Frontend Engineering',
+    xp: 45,
+    prompt:
+      'When rendering a sortable list of editable inputs in React, what bug occurs if you pass the array index as the key?',
+    options: [
+      'React refuses to compile JSX',
+      'Component local state stays bound to the wrong item after sorting',
+      'useEffect runs twice in production',
+      'CSS transitions become synchronous',
+    ],
+    answerIndex: 1,
+    explanation:
+      'React matches component instances by key; index keys shift when items reorder, causing state/DOM mismatch.',
+  },
+  {
+    id: 'dc-sql-index',
+    title: 'SQL Composite Index Ordering',
+    topic: 'Backend & Databases',
+    xp: 45,
+    prompt:
+      'Given index idx_orders_user_created ON orders(user_id, created_at), which query benefits most from the B-Tree index without a full scan?',
+    options: [
+      'WHERE created_at > "2026-01-01" alone',
+      'WHERE user_id = 42 AND created_at > "2026-01-01"',
+      'ORDER BY total_amount DESC',
+      'WHERE LOWER(email) LIKE "%@gmail.com"',
+    ],
+    answerIndex: 1,
+    explanation:
+      'B-Tree composite indexes follow the leftmost prefix rule: filtering by user_id first enables range scan on created_at.',
+  },
+];
+
+export const CORE_CONCEPTS: Array<{
+  id: string;
+  skillKey: SkillKey;
+  title: string;
+  track: string;
+  summary: string;
+  keyTakeaways: string[];
+  ragPrompt: string;
+}> = [
+  {
+    id: 'cc-react-render',
+    skillKey: 'react',
+    title: 'React Rendering, Reconciliation & Derived State',
+    track: 'Frontend Core',
+    summary:
+      'Understand how React diffs Virtual DOM trees, why pure render functions prevent cascading re-renders, and when to compute derived values directly instead of duplicating state in useEffect.',
+    keyTakeaways: [
+      'Compute derived values during render rather than syncing with useEffect',
+      'Preserve component state across reorders with stable domain IDs as keys',
+      'Colocate state close to where it is consumed to limit subtree renders',
+    ],
+    ragPrompt: 'How should I prioritize React concepts given my current Skill Twin mastery?',
+  },
+  {
+    id: 'cc-js-closures',
+    skillKey: 'js',
+    title: 'Closures, Lexical Scope & Async Event Loop',
+    track: 'JavaScript Runtime',
+    summary:
+      'Every async handler, React hook, and debouncer depends on lexical closures and how microtasks preempt macrotasks in the event loop.',
+    keyTakeaways: [
+      'Closures retain references to outer lexical variables after the outer call returns',
+      'Microtasks (Promises/queueMicrotask) drain before the next paint or timer',
+      'Cleanup stale async effects with AbortController or cancellation flags',
+    ],
+    ragPrompt: 'Why is JavaScript closures and async first in my roadmap?',
+  },
+  {
+    id: 'cc-html-a11y',
+    skillKey: 'html',
+    title: 'Semantic Landmarks, ARIA & Keyboard Navigation',
+    track: 'UI Craft & Accessibility',
+    summary:
+      'Accessible interfaces pass WCAG AA contrast, maintain logical heading hierarchies, and support full keyboard traversal.',
+    keyTakeaways: [
+      'Use native <button>, <a>, and <main> before adding ARIA roles',
+      'Ensure >= 40px touch targets and visible :focus-visible rings',
+      'Pair color indicators with explicit text labels for color-blind users',
+    ],
+    ragPrompt: 'Which accessibility and frontend skills matter most for Frontend Engineer roles?',
+  },
+  {
+    id: 'cc-node-rest',
+    skillKey: 'node',
+    title: 'REST API Design, Rate Limiting & Error Contracts',
+    track: 'Backend & APIs',
+    summary:
+      'Design predictable HTTP endpoints with schema validation, idempotency, structured JSON errors, and non-blocking I/O.',
+    keyTakeaways: [
+      'Validate payloads at the boundary and return semantic HTTP 400/401/404/429 codes',
+      'Never block the Node event loop with synchronous CPU loops or sync fs in handlers',
+      'Use parameterized queries to prevent SQL injection',
+    ],
+    ragPrompt: 'What backend & API skills are missing from my Skill Twin right now?',
+  },
+  {
+    id: 'cc-sql-perf',
+    skillKey: 'sql',
+    title: 'Relational Joins, Indexing & Query Plans',
+    track: 'Data & Storage',
+    summary:
+      'Master INNER vs LEFT joins, GROUP BY vs HAVING, and how B-Tree leftmost prefix indexes eliminate sequential scans.',
+    keyTakeaways: [
+      'WHERE filters rows pre-aggregation; HAVING filters grouped aggregates',
+      'Avoid wrapping indexed columns in functions inside WHERE clauses',
+      'Use transactions (ACID) for multi-step mutations',
+    ],
+    ragPrompt: 'Compare my SQL readiness for Full Stack vs Data Analyst jobs.',
+  },
+];

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { AppState, BoostInventory } from '../types';
+import liquidGlassMesh from '../assets/images/liquid_glass_mesh_1794642151382.jpg';
+import type { AppState, BoostInventory, SkillKey } from '../types';
 
 export function BrandLogo({ className = '' }: { className?: string }) {
   return (
@@ -111,6 +112,141 @@ export function ProgressBar({ label, value }: { label: string; value: number }) 
   );
 }
 
+export function SkillRadarChart({
+  skills,
+  targetSkills,
+  size = 240,
+}: {
+  skills: Record<SkillKey, number>;
+  targetSkills?: Record<SkillKey, number>;
+  size?: number;
+}) {
+  const axes: Array<{ key: SkillKey; label: string }> = [
+    { key: 'js', label: 'JS/TS' },
+    { key: 'react', label: 'React' },
+    { key: 'html', label: 'UI/CSS' },
+    { key: 'node', label: 'Node' },
+    { key: 'sql', label: 'SQL' },
+    { key: 'python', label: 'Python' },
+  ];
+  const cx = size / 2;
+  const cy = size / 2;
+  const rMax = size * 0.34;
+  const n = axes.length;
+
+  const pointAt = (idx: number, ratio: number) => {
+    const angle = (Math.PI * 2 * idx) / n - Math.PI / 2;
+    return [
+      cx + Math.cos(angle) * rMax * ratio,
+      cy + Math.sin(angle) * rMax * ratio,
+    ] as const;
+  };
+
+  const rings = [0.25, 0.5, 0.75, 1];
+  const dataPoints = axes
+    .map((a, i) => {
+      const val = Math.max(0.12, Math.min(1, skills[a.key] || 0));
+      const [x, y] = pointAt(i, val);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  const targetPoints = targetSkills
+    ? axes
+        .map((a, i) => {
+          const raw = (targetSkills[a.key] || 75) / 100;
+          const val = Math.max(0.15, Math.min(1, raw));
+          const [x, y] = pointAt(i, val);
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(' ')
+    : null;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="Skill Twin radar graphic"
+      style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}
+    >
+      {rings.map((r) => {
+        const pts = axes
+          .map((_, i) => pointAt(i, r).map((v) => v.toFixed(1)).join(','))
+          .join(' ');
+        return (
+          <polygon
+            key={r}
+            points={pts}
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        );
+      })}
+      {axes.map((a, i) => {
+        const [x2, y2] = pointAt(i, 1);
+        const [lx, ly] = pointAt(i, 1.24);
+        return (
+          <g key={a.key}>
+            <line
+              x1={cx}
+              y1={cy}
+              x2={x2}
+              y2={y2}
+              stroke="var(--line)"
+              strokeWidth={1}
+            />
+            <text
+              x={lx}
+              y={ly}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill="var(--mute)"
+              fontSize="11"
+              fontWeight="600"
+            >
+              {a.label}
+            </text>
+          </g>
+        );
+      })}
+      {targetPoints && (
+        <polygon
+          points={targetPoints}
+          fill="none"
+          stroke="var(--pri)"
+          strokeOpacity={0.65}
+          strokeWidth={1.75}
+          strokeDasharray="4 4"
+        />
+      )}
+      <polygon
+        points={dataPoints}
+        fill="color-mix(in srgb, var(--gold) 28%, transparent)"
+        stroke="var(--gold)"
+        strokeWidth={2}
+      />
+      {axes.map((a, i) => {
+        const val = Math.max(0.12, Math.min(1, skills[a.key] || 0));
+        const [x, y] = pointAt(i, val);
+        return (
+          <circle
+            key={a.key}
+            cx={x}
+            cy={y}
+            r={3.5}
+            fill="var(--pri)"
+            stroke="var(--bg)"
+            strokeWidth={1.5}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -121,11 +257,11 @@ export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
     if (!ctx) return;
 
     const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const nodes = Array.from({ length: 44 }, () => ({
+    const nodes = Array.from({ length: 42 }, () => ({
       x: Math.random(),
       y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.00035,
-      vy: (Math.random() - 0.5) * 0.00035,
+      vx: (Math.random() - 0.5) * 0.00032,
+      vy: (Math.random() - 0.5) * 0.00032,
     }));
 
     let w = 0;
@@ -140,14 +276,14 @@ export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
     let raf = 0;
     const tick = () => {
       ctx.clearRect(0, 0, w, h);
-      const col = theme === 'light' ? '10,12,14' : '255,255,255';
+      const col = theme === 'light' ? '11,79,108' : '125,211,252';
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
         if (!rm) {
           a.x = (a.x + a.vx + 1) % 1;
           a.y = (a.y + a.vy + 1) % 1;
         }
-        ctx.fillStyle = `rgba(${col}, 0.42)`;
+        ctx.fillStyle = `rgba(${col}, 0.35)`;
         ctx.beginPath();
         ctx.arc(a.x * w, a.y * h, 1.8, 0, Math.PI * 2);
         ctx.fill();
@@ -155,8 +291,8 @@ export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
         for (let j = i + 1; j < nodes.length; j++) {
           const b = nodes[j];
           const dist = Math.hypot((a.x - b.x) * w, (a.y - b.y) * h);
-          if (dist < 145) {
-            ctx.strokeStyle = `rgba(${col}, ${0.18 * (1 - dist / 145)})`;
+          if (dist < 140) {
+            ctx.strokeStyle = `rgba(${col}, ${0.15 * (1 - dist / 140)})`;
             ctx.beginPath();
             ctx.moveTo(a.x * w, a.y * h);
             ctx.lineTo(b.x * w, b.y * h);
@@ -177,10 +313,19 @@ export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
   }, [theme]);
 
   return (
-    <>
+    <div className="liquid-backdrop" aria-hidden="true">
+      <img
+        src={liquidGlassMesh}
+        alt=""
+        referrerPolicy="no-referrer"
+        className="liquid-backdrop-img"
+      />
+      <div className={`liquid-backdrop-scrim ${theme === 'light' ? 'is-light' : 'is-dark'}`} />
+      <i className="liquid-blob blob-a" />
+      <i className="liquid-blob blob-b" />
+      <i className="liquid-blob blob-c" />
       <canvas
         ref={canvasRef}
-        aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
@@ -190,19 +335,7 @@ export function NeuralBackground({ theme }: { theme: 'dark' | 'light' }) {
           pointerEvents: 'none',
         }}
       />
-      <i
-        className="orb"
-        style={{ left: '38%', top: '8%', width: 320, height: 320 }}
-      />
-      <i
-        className="orb"
-        style={{ left: '78%', top: '58%', width: 400, height: 400 }}
-      />
-      <i
-        className="orb"
-        style={{ left: '16%', top: '76%', width: 280, height: 280 }}
-      />
-    </>
+    </div>
   );
 }
 
@@ -225,7 +358,7 @@ export function ConfettiBurst({ trigger }: { trigger: number }) {
       vx: (Math.random() - 0.5) * 14,
       vy: -Math.random() * 14 - 4,
       r: Math.random() * 5 + 3,
-      c: ['#ffffff', '#cbd5e1', '#94a3b8', '#4fc1c4', '#0f172a'][
+      c: ['#ffffff', '#38bdf8', '#2dd4bf', '#94a3b8', '#0b4f6c'][
         Math.floor(Math.random() * 5)
       ],
       a: 1,
@@ -358,7 +491,8 @@ export function CommandPalette({
         position: 'fixed',
         inset: 0,
         zIndex: 95,
-        background: 'rgba(5, 15, 20, 0.55)',
+        background: 'rgba(5, 15, 25, 0.56)',
+        backdropFilter: 'blur(12px)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -449,8 +583,8 @@ export function RewardsModal({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 12,
-        background: 'color-mix(in srgb, var(--bg) 60%, transparent)',
-        backdropFilter: 'blur(20px)',
+        background: 'color-mix(in srgb, var(--bg) 52%, transparent)',
+        backdropFilter: 'blur(24px)',
       }}
     >
       <div className="pn" style={{ width: 'min(410px, 100%)', margin: 0 }}>
@@ -533,34 +667,44 @@ export function RewardsModal({
 
 const TOUR_STEPS = [
   {
-    title: 'place1ai · Built-in RAG & Skill Twin',
-    body: 'Welcome to place1ai. Every module connects to a live SQLite Skill Digital Twin, Bayesian Knowledge Tracing, and an in-built RAG engine.',
-    screen: 'home',
-  },
-  {
-    title: 'Your readiness & progress path',
-    body: 'This ring and curved path track your live readiness and stage-by-stage progression toward your target role.',
-    screen: 'home',
-  },
-  {
-    title: 'Skill map & BKT assessments',
-    body: 'Green skills are mastered, dashed nodes are gaps. Click any node to run a targeted BKT assessment.',
-    screen: 'map',
-  },
-  {
-    title: 'Planner ⇄ Critic debate',
-    body: 'Multi-agent negotiation verifies prerequisites and weekly study hours. Drag steps or watch remedial replanning in real time.',
+    title: '01 · Your Personalized Career Roadmap',
+    body: 'Right after onboarding, your custom step-by-step plan appears here. Complete stages to earn XP, reorder steps anytime, or change your goal with voice.',
     screen: 'roadmap',
   },
   {
-    title: 'Resume studio & ATS lab',
-    body: 'Your resume scores against real posting keywords as you type while keeping learning skills truthfully verified.',
+    title: '02 · Command Centre (Everything Above the Fold)',
+    body: 'Jump straight into your top AI tools, view your skill balance graphic, check today’s goals, or edit your display name with zero clutter.',
+    screen: 'command',
+  },
+  {
+    title: '03 · Build Your Own AI Agents',
+    body: 'Create custom AI helpers tailored to your role — connect your resume or study notes and run personalized checks in one click.',
+    screen: 'agents',
+  },
+  {
+    title: '04 · AI Study Mentor & Job Notes',
+    body: 'Paste any job description or study note and ask questions in simple English. Every answer highlights the exact note it used.',
+    screen: 'rag',
+  },
+  {
+    title: '05 · Live Coding Test Arena',
+    body: 'Solve real coding problems right in your browser with a live timer, instant pass/fail test cases, and friendly AI tips.',
+    screen: 'dsa-coding',
+  },
+  {
+    title: '06 · Two-Way Spoken Virtual Interview',
+    body: 'Talk face-to-face with Hiring Manager Priya. She greets you by name, listens to your microphone, replies out loud, and scores your interview.',
+    screen: 'interview',
+  },
+  {
+    title: '07 · AI Resume Builder & Job Match',
+    body: 'Generate a clean, honest resume in one click, check missing job keywords, and improve your bullet points for higher shortlist rates.',
     screen: 'resume',
   },
   {
-    title: 'Built-in RAG Mentor',
-    body: 'Ask why any step was chosen. Built-in RAG retrieves chunks directly from your Skill Twin, Resume, ATS, and 2026 Market Research with source citations.',
-    screen: 'home',
+    title: '08 · Learning Analytics & Auto-Apply',
+    body: 'See your skill gap radar, 7-day learning velocity trend, interview score breakdown, and 1-click Auto-Apply funnel all in one place.',
+    screen: 'analytics',
   },
 ];
 
@@ -568,13 +712,30 @@ export function GuidedTourOverlay({
   stepIndex,
   onStep,
   onOpenRagMentor,
+  onOpenVoiceOnboarding,
   onClose,
 }: {
   stepIndex: number | null;
   onStep: (nextIndex: number) => void;
   onOpenRagMentor?: () => void;
+  onOpenVoiceOnboarding?: () => void;
   onClose: () => void;
 }) {
+  const [autoPlaying, setAutoPlaying] = useState(false);
+
+  useEffect(() => {
+    if (stepIndex === null || !autoPlaying) return;
+    const t = setTimeout(() => {
+      if (stepIndex >= TOUR_STEPS.length - 1) {
+        setAutoPlaying(false);
+        onClose();
+      } else {
+        onStep(stepIndex + 1);
+      }
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [stepIndex, autoPlaying, onStep, onClose]);
+
   if (stepIndex === null) return null;
   const step = TOUR_STEPS[stepIndex];
   if (!step) return null;
@@ -585,71 +746,126 @@ export function GuidedTourOverlay({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(5, 15, 20, 0.58)',
+        background: 'rgba(5, 14, 24, 0.42)',
         zIndex: 70,
-        backdropFilter: 'blur(3px)',
+        backdropFilter: 'blur(4px)',
+        pointerEvents: 'auto',
       }}
     >
       <div
-        className="pn"
+        className="pn glass-hero"
         role="dialog"
-        aria-label="Guided tour"
+        aria-label="Guided platform tour"
         style={{
           position: 'absolute',
           left: '50%',
-          bottom: '24px',
+          bottom: '28px',
           transform: 'translateX(-50%)',
-          width: 'min(480px, 92%)',
+          width: 'min(600px, 94%)',
+          padding: '22px 24px',
         }}
       >
         <div
           className="row"
           style={{
-            marginBottom: 10,
+            marginBottom: 12,
             paddingBottom: 10,
             borderBottom: '1px solid var(--line)',
             gap: 8,
+            justifyContent: 'space-between',
           }}
         >
-          <div style={{ width: 22, height: 22, color: 'var(--ink)' }}>
-            <BrandLogo />
+          <div className="row" style={{ gap: 8 }}>
+            <div style={{ width: 22, height: 22, color: 'var(--ink)' }}>
+              <BrandLogo />
+            </div>
+            <span style={{ fontWeight: 700, letterSpacing: '0.03em' }}>place1ai</span>
+            <span className="mute" style={{ fontSize: 12.5 }}>
+              Quick Guided Tour
+            </span>
           </div>
-          <span style={{ fontWeight: 700, letterSpacing: '0.04em' }}>place1ai</span>
-          <span className="mute" style={{ fontSize: 12 }}>
-            Built-in RAG · BKT Twin · Tour
-          </span>
+          <button
+            onClick={() => setAutoPlaying((v) => !v)}
+            style={{ minHeight: 32, padding: '4px 14px', fontSize: 12 }}
+          >
+            {autoPlaying ? 'Pause Auto-Play' : 'Auto-Play Tour'}
+          </button>
         </div>
 
-        <h3 style={{ marginBottom: 6 }}>{step.title}</h3>
-        <p className="mute">{step.body}</p>
-        <div className="row" style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
+          {TOUR_STEPS.map((s, idx) => (
+            <button
+              key={s.title}
+              aria-label={`Jump to tour step ${idx + 1}`}
+              onClick={() => onStep(idx)}
+              style={{
+                flex: 1,
+                height: 6,
+                minHeight: 6,
+                padding: 0,
+                border: 0,
+                borderRadius: 9,
+                background: idx <= stepIndex ? 'var(--gold)' : 'var(--line)',
+              }}
+            />
+          ))}
+        </div>
+
+        <h3 style={{ marginBottom: 6, fontSize: 16.5 }}>{step.title}</h3>
+        <p className="mute" style={{ fontSize: 14, lineHeight: 1.55 }}>{step.body}</p>
+        <div className="row" style={{ marginTop: 16 }}>
           <span className="mute font-mono-num">
             {stepIndex + 1} of {TOUR_STEPS.length}
           </span>
           <span style={{ flex: 1 }} />
-          <button onClick={onClose}>Skip tour</button>
+          <button
+            onClick={() => {
+              setAutoPlaying(false);
+              onClose();
+            }}
+          >
+            Skip Tour
+          </button>
+          {stepIndex === 0 && onOpenVoiceOnboarding && (
+            <button
+              onClick={() => {
+                setAutoPlaying(false);
+                onClose();
+                onOpenVoiceOnboarding();
+              }}
+            >
+              Adjust Goal
+            </button>
+          )}
           {isLast && onOpenRagMentor && (
             <button
               className="p"
               onClick={() => {
+                setAutoPlaying(false);
                 onClose();
                 onOpenRagMentor();
               }}
             >
-              Try Built-in RAG
+              Open AI Mentor
             </button>
           )}
           <button
             className={isLast && onOpenRagMentor ? '' : 'p'}
             onClick={() => {
-              if (isLast) onClose();
-              else onStep(stepIndex + 1);
+              if (isLast) {
+                setAutoPlaying(false);
+                onClose();
+              } else {
+                onStep(stepIndex + 1);
+              }
             }}
           >
-            {isLast ? 'Finish' : 'Next'}
+            {isLast ? 'Finish Tour' : 'Next →'}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+export { TOUR_STEPS };

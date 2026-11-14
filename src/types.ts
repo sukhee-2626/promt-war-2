@@ -1,6 +1,7 @@
 export type SkillKey = 'html' | 'js' | 'react' | 'node' | 'python' | 'sql' | 'db' | 'git';
 
 export type TargetRole =
+  | 'Frontend Engineer'
   | 'Full Stack Developer'
   | 'Data Analyst'
   | 'Data Scientist'
@@ -173,6 +174,114 @@ export interface PromptDuelResult {
   challengerPrompt: string;
 }
 
+export interface XpVelocityPoint {
+  day: string;
+  date: string;
+  xp: number;
+}
+
+export interface TodayTaskItem {
+  id: string;
+  title: string;
+  done: boolean;
+  screen: string;
+}
+
+export interface RagChunkInfo {
+  id: string;
+  preview: string;
+  tokens: number;
+  customDocId?: number;
+}
+
+export interface CustomRagDoc {
+  id: number;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface RagQueryResult {
+  query: string;
+  retrieved: Array<{ id: string; text: string; score: number }>;
+  answer: string;
+  sources: string[];
+  usedGemini: boolean;
+}
+
+export interface AtsAiAudit {
+  matchScore: number;
+  verdict: string;
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  rewrittenBullets: string[];
+  usedGemini: boolean;
+}
+
+export interface AgentAuditResult {
+  summary: string;
+  findings: Array<{ agent: string; status: 'pass' | 'warn'; detail: string }>;
+  usedGemini: boolean;
+}
+
+export interface AiProblemSolution {
+  problem: string;
+  intuition: string;
+  optimalApproach: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  codeSolution: string;
+  edgeCases: string[];
+  usedGemini: boolean;
+}
+
+export interface AutoApplyResult {
+  appliedCount: number;
+  appliedJobs: Array<{ company: string; title: string; fit: number }>;
+  tailoredSummary: string;
+  usedGemini: boolean;
+}
+
+export interface OnboardingRecommendation {
+  recommendedRole: TargetRole;
+  reason: string;
+  spokenPitch: string;
+  alternatives: Array<{ role: TargetRole; fit: number; summary: string }>;
+  previewSteps: Array<{ title: string; hours: number; why: string }>;
+  usedGemini: boolean;
+}
+
+export interface CustomAgentRecord {
+  id: number;
+  name: string;
+  roleFocus: string;
+  mission: string;
+  tools: string[];
+  lastOutput: string;
+  createdAt: string;
+}
+
+export interface CustomAgentRunResult {
+  agent: CustomAgentRecord;
+  verdict: string;
+  actions: string[];
+  ragSourcesUsed: string[];
+  usedGemini: boolean;
+}
+
+export interface CodeGradeResult {
+  problemTitle: string;
+  language: string;
+  score: number;
+  passedTests: number;
+  totalTests: number;
+  timeComplexity: string;
+  spaceComplexity: string;
+  feedback: string;
+  optimizedSnippet: string;
+  usedGemini: boolean;
+}
+
 export interface AppState {
   user: {
     id: number;
@@ -185,6 +294,7 @@ export interface AppState {
     star: number;
     stage: number;
     chestClaimedToday: boolean;
+    dailyChallengeDone: boolean;
     boost: BoostInventory;
     prof: UserProfile | null;
     roadmapVersion: number;
@@ -211,4 +321,12 @@ export interface AppState {
   agentDebate: AgentDebateTurn[];
   chatMessages: ChatMessage[];
   leaderboard: LeaderboardEntry[];
+  xpVelocity: {
+    totalWeek: number;
+    days: XpVelocityPoint[];
+  };
+  todayTasks: TodayTaskItem[];
+  ragChunks: RagChunkInfo[];
+  customRagDocs: CustomRagDoc[];
+  customAgents: CustomAgentRecord[];
 }

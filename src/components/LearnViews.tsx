@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { CheckCircle2, Play, RotateCcw, Sparkles, Timer, XCircle } from 'lucide-react';
+import codingArenaBanner from '../assets/images/coding_arena_banner_1794642150971.jpg';
 import { api } from '../lib/api';
 import {
   APTITUDE_QUESTIONS,
@@ -10,13 +12,80 @@ import {
   SKILL_META,
 } from '../lib/catalog';
 import type {
+  AiProblemSolution,
   AppState,
+  CodeGradeResult,
   InterviewType,
   PromptDuelResult,
   SkillKey,
   SkillQuizQuestion,
 } from '../types';
 import { ProgressBar, Ring } from './UiPrimitives';
+
+interface CodingProblem {
+  id: string;
+  title: string;
+  difficulty: 'Easy' | 'Medium';
+  fnName: string;
+  prompt: string;
+  starterCode: string;
+  tests: Array<{ label: string; args: unknown[]; expected: unknown }>;
+}
+
+const CODING_PROBLEMS: CodingProblem[] = [
+  {
+    id: 'two-sum',
+    title: 'Two Sum',
+    difficulty: 'Easy',
+    fnName: 'twoSum',
+    prompt: 'Return the two indices [i, j] whose numbers in nums add up to target.',
+    starterCode: `function twoSum(nums, target) {\n  const seen = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const need = target - nums[i];\n    if (seen.has(need)) return [seen.get(need), i];\n    seen.set(nums[i], i);\n  }\n  return [];\n}`,
+    tests: [
+      { label: '[2,7,11,15], target=9', args: [[2, 7, 11, 15], 9], expected: [0, 1] },
+      { label: '[3,2,4], target=6', args: [[3, 2, 4], 6], expected: [1, 2] },
+      { label: '[3,3], target=6', args: [[3, 3], 6], expected: [0, 1] },
+    ],
+  },
+  {
+    id: 'valid-parens',
+    title: 'Valid Parentheses',
+    difficulty: 'Easy',
+    fnName: 'isValid',
+    prompt: 'Return true if every opening bracket (, {, [ is closed in the right order.',
+    starterCode: `function isValid(s) {\n  const stack = [];\n  const match = { ')': '(', '}': '{', ']': '[' };\n  for (const ch of s) {\n    if (ch === '(' || ch === '{' || ch === '[') stack.push(ch);\n    else if (stack.pop() !== match[ch]) return false;\n  }\n  return stack.length === 0;\n}`,
+    tests: [
+      { label: '"()[]{}"', args: ['()[]{}'], expected: true },
+      { label: '"([)]"', args: ['([)]'], expected: false },
+      { label: '"{[]}"', args: ['{[]}'], expected: true },
+    ],
+  },
+  {
+    id: 'max-subarray',
+    title: 'Max Subarray Sum',
+    difficulty: 'Medium',
+    fnName: 'maxSubArray',
+    prompt: 'Find the largest sum you can get from a continuous slice of the array.',
+    starterCode: `function maxSubArray(nums) {\n  let best = nums[0];\n  let cur = 0;\n  for (const n of nums) {\n    cur = Math.max(n, cur + n);\n    best = Math.max(best, cur);\n  }\n  return best;\n}`,
+    tests: [
+      { label: '[-2,1,-3,4,-1,2,1,-5,4]', args: [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], expected: 6 },
+      { label: '[1]', args: [[1]], expected: 1 },
+      { label: '[5,4,-1,7,8]', args: [[5, 4, -1, 7, 8]], expected: 23 },
+    ],
+  },
+  {
+    id: 'first-unique',
+    title: 'First Unique Letter',
+    difficulty: 'Easy',
+    fnName: 'firstUniqChar',
+    prompt: 'Return the index of the first letter that appears only once, or -1 if none.',
+    starterCode: `function firstUniqChar(s) {\n  const counts = {};\n  for (const c of s) counts[c] = (counts[c] || 0) + 1;\n  for (let i = 0; i < s.length; i++) {\n    if (counts[s[i]] === 1) return i;\n  }\n  return -1;\n}`,
+    tests: [
+      { label: '"leetcode"', args: ['leetcode'], expected: 0 },
+      { label: '"loveleetcode"', args: ['loveleetcode'], expected: 2 },
+      { label: '"aabb"', args: ['aabb'], expected: -1 },
+    ],
+  },
+];
 
 export function LearnView({
   state,
@@ -266,20 +335,122 @@ export function QuizView({
 
 export function PracticeView({
   state,
+  initialTab = 'coding',
   onToggleDsa,
   onSubmitAptitude,
   onPromptDuel,
   onLaunchInterview,
+  onStateUpdate,
   onToast,
 }: {
   state: AppState;
+  initialTab?: 'coding' | 'dsa' | 'solver' | 'apt' | 'com' | 'duel';
   onToggleDsa: (slug: string, solved: boolean) => void;
   onSubmitAptitude: (score: number) => Promise<void>;
   onPromptDuel: (topic: string, userPrompt: string) => Promise<PromptDuelResult>;
   onLaunchInterview: (type: InterviewType) => void;
+  onStateUpdate?: (s: AppState) => void;
   onToast: (msg: string) => void;
 }) {
-  const [tab, setTab] = useState<'dsa' | 'apt' | 'com' | 'duel'>('dsa');
+  const [tab, setTab] = useState<'coding' | 'dsa' | 'solver' | 'apt' | 'com' | 'duel'>(initialTab);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  // Live Coding Test Arena state
+  const [codingIdx, setCodingIdx] = useState(0);
+  const currentProblem = CODING_PROBLEMS[codingIdx];
+  const [codeInput, setCodeInput] = useState(currentProblem.starterCode);
+  const [testResults, setTestResults] = useState<
+    Array<{ label: string; expected: string; actual: string; passed: boolean }>
+  >([]);
+  const [codeTimerRunning, setCodeTimerRunning] = useState(false);
+  const [codeSecLeft, setCodeSecLeft] = useState(25 * 60);
+  const [gradingCode, setGradingCode] = useState(false);
+  const [codeGrade, setCodeGrade] = useState<CodeGradeResult | null>(null);
+
+  useEffect(() => {
+    if (!codeTimerRunning) return;
+    const iv = setInterval(() => {
+      setCodeSecLeft((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [codeTimerRunning]);
+
+  const selectCodingProblem = (idx: number) => {
+    setCodingIdx(idx);
+    setCodeInput(CODING_PROBLEMS[idx].starterCode);
+    setTestResults([]);
+    setCodeGrade(null);
+  };
+
+  const runUnitTests = () => {
+    const out: Array<{ label: string; expected: string; actual: string; passed: boolean }> = [];
+    try {
+      const factory = new Function(`${codeInput}\nreturn ${currentProblem.fnName};`);
+      const fn = factory();
+      if (typeof fn !== 'function') {
+        throw new Error(`Could not find function ${currentProblem.fnName}`);
+      }
+      for (const tc of currentProblem.tests) {
+        const clonedArgs = tc.args.map((a) => (Array.isArray(a) ? [...a] : a));
+        const res = fn(...clonedArgs);
+        const passed = JSON.stringify(res) === JSON.stringify(tc.expected);
+        out.push({
+          label: tc.label,
+          expected: JSON.stringify(tc.expected),
+          actual: JSON.stringify(res),
+          passed,
+        });
+      }
+      setTestResults(out);
+      const passedCount = out.filter((r) => r.passed).length;
+      onToast(`${passedCount}/${out.length} tests passed`);
+      return out;
+    } catch (err: any) {
+      const msg = err?.message || 'Syntax error';
+      const failed = currentProblem.tests.map((tc) => ({
+        label: tc.label,
+        expected: JSON.stringify(tc.expected),
+        actual: `Error: ${msg}`,
+        passed: false,
+      }));
+      setTestResults(failed);
+      onToast(msg);
+      return failed;
+    }
+  };
+
+  const handleGradeCode = async () => {
+    if (gradingCode) return;
+    const latest = runUnitTests();
+    const passedTests = latest.filter((r) => r.passed).length;
+    setGradingCode(true);
+    try {
+      const res = await api.gradeCodingSubmission({
+        problemTitle: currentProblem.title,
+        language: 'JavaScript',
+        code: codeInput,
+        passedTests,
+        totalTests: currentProblem.tests.length,
+      });
+      setCodeGrade(res.grade);
+      onStateUpdate?.(res.state);
+      onToast(`Code checked (+${passedTests === currentProblem.tests.length ? 30 : 15} XP)`);
+    } catch (err: any) {
+      onToast(err.message || 'Could not check code right now');
+    } finally {
+      setGradingCode(false);
+    }
+  };
+
+  // AI Problem Solver state
+  const [solveProblem, setSolveProblem] = useState('Two Sum');
+  const [solveLanguage, setSolveLanguage] = useState('TypeScript');
+  const [solveApproach, setSolveApproach] = useState('');
+  const [solvingAi, setSolvingAi] = useState(false);
+  const [solution, setSolution] = useState<AiProblemSolution | null>(null);
 
   // Prompt duel state
   const [duelTopic, setDuelTopic] = useState('REST API error handling & rate limiting');
@@ -297,6 +468,26 @@ export function PracticeView({
   const [c2, setC2] = useState('');
   const [c3, setC3] = useState('');
   const [composed, setComposed] = useState('');
+
+  const runAiSolve = async (customTitle?: string) => {
+    const pTitle = (customTitle ?? solveProblem).trim();
+    if (!pTitle || solvingAi) return;
+    if (customTitle) {
+      setSolveProblem(customTitle);
+      setTab('solver');
+    }
+    setSolvingAi(true);
+    try {
+      const res = await api.solveDsaProblem(pTitle, solveLanguage, solveApproach);
+      setSolution(res.solution);
+      onStateUpdate?.(res.state);
+      onToast(`AI solution generated (+15 XP)`);
+    } catch (err: any) {
+      onToast(err.message || 'AI solver unavailable');
+    } finally {
+      setSolvingAi(false);
+    }
+  };
 
   useEffect(() => {
     if (aptPhase !== 'run') return;
@@ -330,17 +521,19 @@ export function PracticeView({
 
   return (
     <div>
-      <h1>Practice</h1>
+      <h1>Coding Test &amp; Practice</h1>
       <p className="mute" style={{ marginBottom: 12 }}>
-        DSA, aptitude and communication drills that feed your interview readiness.
+        Write real JavaScript code, run instant test checks, get clear AI help, and build confidence step by step.
       </p>
 
       <div className="opts">
         {(
           [
-            ['dsa', 'DSA'],
-            ['apt', 'Aptitude'],
-            ['com', 'Communication'],
+            ['coding', 'Live Coding Test'],
+            ['solver', 'AI Code Helper'],
+            ['dsa', 'DSA Checklist'],
+            ['apt', 'Aptitude Quiz'],
+            ['com', 'Speaking Prep'],
             ['duel', 'Prompt Duel'],
           ] as const
         ).map(([k, lbl]) => (
@@ -354,11 +547,257 @@ export function PracticeView({
         ))}
       </div>
 
+      {tab === 'coding' && (
+        <div>
+          <div className="hero-media-banner" style={{ minHeight: 165 }}>
+            <img
+              src={codingArenaBanner}
+              alt="Live Coding Test Workspace"
+              referrerPolicy="no-referrer"
+              className="hero-bg"
+            />
+            <div className="hero-media-scrim" />
+            <div className="hero-media-content">
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <div className="mute font-mono-num" style={{ fontSize: 12, marginBottom: 4 }}>
+                    LIVE CODING TEST · JAVASCRIPT SANDBOX
+                  </div>
+                  <h2 style={{ margin: 0, color: '#ffffff', fontSize: 24 }}>
+                    {currentProblem.title} ({currentProblem.difficulty})
+                  </h2>
+                  <p className="mute" style={{ margin: '4px 0 0', maxWidth: 560 }}>
+                    {currentProblem.prompt}
+                  </p>
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  <span className="chip font-mono-num" style={{ margin: 0 }}>
+                    <Timer size={13} style={{ display: 'inline', marginRight: 5, verticalAlign: '-2px' }} />
+                    {fmtTimer(codeSecLeft)}
+                  </span>
+                  <button
+                    onClick={() => setCodeTimerRunning((r) => !r)}
+                    style={{ minHeight: 34, padding: '4px 12px', fontSize: 13 }}
+                  >
+                    {codeTimerRunning ? 'Pause Timer' : 'Start Timer'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="opts" style={{ marginTop: 0 }}>
+            {CODING_PROBLEMS.map((p, idx) => (
+              <button
+                key={p.id}
+                className={`opt ${codingIdx === idx ? 'on' : ''}`}
+                onClick={() => selectCodingProblem(idx)}
+              >
+                {p.title}
+              </button>
+            ))}
+          </div>
+
+          <div className="g2">
+            <div className="pn" style={{ marginBottom: 0 }}>
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>Your JavaScript Code</h3>
+                <button
+                  onClick={() => {
+                    setCodeInput(currentProblem.starterCode);
+                    setTestResults([]);
+                    setCodeGrade(null);
+                  }}
+                  style={{ minHeight: 30, padding: '2px 10px', fontSize: 12 }}
+                >
+                  <RotateCcw size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />
+                  Reset Code
+                </button>
+              </div>
+              <textarea
+                className="code-editor"
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                spellCheck={false}
+                aria-label="Coding test editor"
+              />
+              <div className="row" style={{ marginTop: 10 }}>
+                <button onClick={runUnitTests}>
+                  <Play size={14} style={{ display: 'inline', marginRight: 5, verticalAlign: '-2px' }} />
+                  Run Tests
+                </button>
+                <button className="p" disabled={gradingCode} onClick={handleGradeCode}>
+                  <Sparkles size={14} style={{ display: 'inline', marginRight: 5, verticalAlign: '-2px' }} />
+                  {gradingCode ? 'Checking Code…' : 'Check with AI (+30 XP)'}
+                </button>
+              </div>
+            </div>
+
+            <div className="pn" style={{ marginBottom: 0 }}>
+              <h3 style={{ marginBottom: 8 }}>Test Cases &amp; AI Review</h3>
+              {testResults.length === 0 ? (
+                <p className="mute">
+                  Click <b>Run Tests</b> to check your function against all 3 test cases right away.
+                </p>
+              ) : (
+                testResults.map((tr) => (
+                  <div key={tr.label} className="step">
+                    {tr.passed ? (
+                      <CheckCircle2 size={16} style={{ color: 'var(--ok)', flex: 'none' }} />
+                    ) : (
+                      <XCircle size={16} style={{ color: 'var(--bad)', flex: 'none' }} />
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{tr.label}</div>
+                      <div className="mute font-mono-num" style={{ fontSize: 12 }}>
+                        Expected {tr.expected} · Got {tr.actual}
+                      </div>
+                    </div>
+                    <span className={`chip ${tr.passed ? 'o' : 'g'}`}>
+                      {tr.passed ? 'Pass' : 'Fail'}
+                    </span>
+                  </div>
+                ))
+              )}
+
+              {codeGrade && (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                  <div className="row" style={{ gap: 14, marginBottom: 8 }}>
+                    <Ring percent={codeGrade.score} size={72} strokeWidth={7} />
+                    <div>
+                      <div style={{ fontWeight: 700 }}>
+                        AI Score: {codeGrade.score}/100
+                      </div>
+                      <div className="mute font-mono-num" style={{ fontSize: 12 }}>
+                        Speed {codeGrade.timeComplexity} · Memory {codeGrade.spaceComplexity}
+                      </div>
+                    </div>
+                  </div>
+                  <p style={{ marginBottom: 8, fontSize: 13.5 }}>{codeGrade.feedback}</p>
+                  <div className="mute" style={{ fontSize: 12, marginBottom: 4 }}>
+                    Clean Reference Code:
+                  </div>
+                  <pre className="code-editor" style={{ minHeight: 0, margin: 0, overflowX: 'auto' }}>
+                    <code>{codeGrade.optimizedSnippet}</code>
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'solver' && (
+        <div>
+          <div className="pn">
+            <h2>AI Problem Solver &amp; Code Coach (Gemini)</h2>
+            <p className="mute" style={{ marginBottom: 12 }}>
+              Enter any LeetCode, HackerRank, or system coding problem to get intuition, optimal Big-O complexity, runnable code, and edge cases (+15 XP).
+            </p>
+            <div className="g2">
+              <label>
+                <span className="mute">Problem statement or title</span>
+                <input
+                  value={solveProblem}
+                  onChange={(e) => setSolveProblem(e.target.value)}
+                  placeholder="e.g. LRU Cache, Longest Substring Without Repeating Characters"
+                />
+              </label>
+              <label>
+                <span className="mute">Preferred language</span>
+                <select
+                  value={solveLanguage}
+                  onChange={(e) => setSolveLanguage(e.target.value)}
+                >
+                  <option>TypeScript</option>
+                  <option>Python</option>
+                  <option>JavaScript</option>
+                  <option>C++</option>
+                  <option>Java</option>
+                </select>
+              </label>
+            </div>
+            <label style={{ display: 'block', marginTop: 10 }}>
+              <span className="mute">Your current approach or code draft (optional)</span>
+              <textarea
+                rows={3}
+                value={solveApproach}
+                onChange={(e) => setSolveApproach(e.target.value)}
+                placeholder="Paste your brute-force idea or partial code to optimize it…"
+              />
+            </label>
+            <div className="row" style={{ marginTop: 12 }}>
+              <button
+                className="p"
+                disabled={solvingAi || !solveProblem.trim()}
+                onClick={() => runAiSolve()}
+              >
+                {solvingAi ? 'Solving with Gemini AI…' : 'Solve & Explain (+15 XP)'}
+              </button>
+              <button onClick={() => onLaunchInterview('DSA')}>
+                Practice in DSA Mock Interview
+              </button>
+            </div>
+          </div>
+
+          {solution && (
+            <div className="g2">
+              <div className="pn">
+                <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+                  <h2 style={{ margin: 0 }}>{solution.problem}</h2>
+                  <span className="mute font-mono-num" style={{ fontSize: 12 }}>
+                    Time {solution.timeComplexity} · Space {solution.spaceComplexity}
+                  </span>
+                </div>
+                <h3>Intuition</h3>
+                <p className="mute" style={{ marginTop: 4 }}>{solution.intuition}</p>
+                <h3 style={{ marginTop: 10 }}>Optimal Strategy</h3>
+                <p className="mute" style={{ marginTop: 4 }}>{solution.optimalApproach}</p>
+                <h3 style={{ marginTop: 10 }}>Critical Edge Cases</h3>
+                <ul style={{ paddingLeft: 18, marginTop: 4, marginBottom: 0 }}>
+                  {solution.edgeCases.map((ec) => (
+                    <li key={ec} className="mute">{ec}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="pn">
+                <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+                  <h2 style={{ margin: 0 }}>Optimal Code ({solveLanguage})</h2>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(solution.codeSolution);
+                      onToast('Solution copied');
+                    }}
+                  >
+                    Copy Code
+                  </button>
+                </div>
+                <pre
+                  style={{
+                    margin: 0,
+                    padding: 14,
+                    borderRadius: 12,
+                    background: 'var(--soft)',
+                    border: '1px solid var(--line)',
+                    overflowX: 'auto',
+                    fontSize: 12.5,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <code>{solution.codeSolution}</code>
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === 'dsa' && (
         <div>
           <div className="pn">
             <div className="row" style={{ marginBottom: 10 }}>
               <h2 style={{ flex: 1, margin: 0 }}>DSA tracker</h2>
+              <button onClick={() => setTab('solver')}>Open AI Problem Solver</button>
               <button className="p" onClick={() => onLaunchInterview('DSA')}>
                 Start DSA mock interview
               </button>
@@ -378,24 +817,33 @@ export function PracticeView({
               {problems.map(([title, slug]) => {
                 const checked = state.dsaSolved.includes(slug);
                 return (
-                  <label key={slug} className="step" style={{ cursor: 'pointer' }}>
+                  <div key={slug} className="step">
                     <input
                       type="checkbox"
-                      style={{ width: 'auto' }}
+                      aria-label={`Mark ${title} solved`}
+                      style={{ width: 'auto', cursor: 'pointer' }}
                       checked={checked}
                       onChange={(e) => onToggleDsa(slug, e.target.checked)}
                     />
                     <span>{title}</span>
-                    <a
-                      className="lnk"
-                      href={`https://leetcode.com/problems/${slug}/`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ margin: 0 }}
-                    >
-                      Solve
-                    </a>
-                  </label>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button
+                        onClick={() => runAiSolve(title)}
+                        style={{ minHeight: 30, padding: '2px 10px', fontSize: 12 }}
+                      >
+                        AI Solve
+                      </button>
+                      <a
+                        className="lnk"
+                        href={`https://leetcode.com/problems/${slug}/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ margin: 0, padding: '4px 12px', fontSize: 12 }}
+                      >
+                        LeetCode
+                      </a>
+                    </div>
+                  </div>
                 );
               })}
             </div>
