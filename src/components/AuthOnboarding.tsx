@@ -220,27 +220,36 @@ export function SignInModal({
           </div>
 
           <div
-            className="row"
             style={{
-              gap: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
               paddingTop: 14,
               borderTop: '1px solid var(--line)',
-              justifyContent: 'space-between',
             }}
           >
+            <div className="row" style={{ gap: 8, width: '100%' }}>
+              <button
+                disabled={loading}
+                onClick={() => handleSubmit('Alex Rivera', 'alex@place1ai.demo')}
+                style={{ flex: 1, fontSize: 13 }}
+              >
+                Alex (Frontend)
+              </button>
+              <button
+                disabled={loading}
+                onClick={() => handleSubmit('Asha Rao', 'asha@place1ai.demo')}
+                style={{ flex: 1, fontSize: 13 }}
+              >
+                Asha (Full Stack)
+              </button>
+            </div>
             <button
               disabled={loading}
-              onClick={() => handleSubmit('Alex Rivera', 'alex@place1ai.demo')}
-              style={{ flex: 1, fontSize: 13 }}
+              onClick={() => handleSubmit('Guest', undefined)}
+              style={{ width: '100%', minHeight: 42, fontSize: 13, background: 'var(--soft)', fontWeight: 600 }}
             >
-              Demo: Alex (Frontend)
-            </button>
-            <button
-              disabled={loading}
-              onClick={() => handleSubmit('Asha Rao', 'asha@place1ai.demo')}
-              style={{ flex: 1, fontSize: 13 }}
-            >
-              Demo: Asha (Full Stack)
+              ⚡ Sign in as Guest (Instant Access)
             </button>
           </div>
         </div>
