@@ -1,0 +1,5 @@
+repository: https://github.com/sukhee-2626/promt-war-.git
+git_user_email: sukheesakthivel07@gmail.com
+git_user_name: sukheesakthivel
+
+SECURITY WARNING: Do not store PATs or credentials in this file.

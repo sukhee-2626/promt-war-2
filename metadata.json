@@ -1,0 +1,6 @@
+{
+  "name": "place1ai",
+  "description": "AI-powered placement partner with skill twin mapping, adaptive roadmaps, ATS resume studio, mock interviews, and RAG mentor.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
