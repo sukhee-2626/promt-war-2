@@ -451,4 +451,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ challengeId, answerIndex }),
     }),
+
+  syncInterviewSchedule: (payload: {
+    interviewType?: string;
+    startTime?: string;
+    durationMinutes?: number;
+    reminderMinutes?: number;
+  }) =>
+    req<{
+      success: boolean;
+      calendarUrl: string;
+      eventSummary: {
+        title: string;
+        startTime: string;
+        durationMinutes: number;
+        reminderMinutes: number;
+      };
+      reward: RewardResult;
+      state: AppState;
+    }>('/api/calendar/sync-interview', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };

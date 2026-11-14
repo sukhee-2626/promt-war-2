@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, Check, Code2, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, Wand2 } from 'lucide-react';
+import { Bot, Calendar, Check, Code2, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, Wand2 } from 'lucide-react';
 import interviewStageBanner from '../assets/images/interview_stage_banner_1794642150580.jpg';
 import priyaAvatar from '../assets/images/interviewer_priya_avatar_1794642150720.jpg';
 import { api } from '../lib/api';
@@ -929,6 +929,28 @@ export function InterviewView({
   const [camActive, setCamActive] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [report, setReport] = useState<InterviewSessionRecord | null>(null);
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
+
+  const handleSyncCalendar = async () => {
+    if (syncingCalendar) return;
+    setSyncingCalendar(true);
+    try {
+      const res = await api.syncInterviewSchedule({
+        interviewType: type,
+        startTime: new Date(Date.now() + 86400000).toISOString(),
+        durationMinutes: 45,
+        reminderMinutes: 30,
+      });
+      onToast('Synced with Google Calendar & set automatic meeting reminders! (+15 XP)');
+      if (res.calendarUrl) {
+        window.open(res.calendarUrl, '_blank');
+      }
+    } catch (err: any) {
+      onToast(err.message || 'Calendar sync failed');
+    } finally {
+      setSyncingCalendar(false);
+    }
+  };
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -1643,6 +1665,22 @@ export function InterviewView({
 
       {phase === 'report' && report && (
         <div>
+          <div className="pn row" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
+            <div className="row" style={{ gap: 12 }}>
+              <Calendar size={22} style={{ color: 'var(--gold)' }} />
+              <div>
+                <h3 style={{ margin: 0 }}>Google Calendar Sync &amp; Reminders</h3>
+                <span className="mute" style={{ fontSize: 13 }}>
+                  Sync your interview schedule to Google Calendar with automatic meeting reminders.
+                </span>
+              </div>
+            </div>
+            <button className="p" onClick={handleSyncCalendar} disabled={syncingCalendar}>
+              <Calendar size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: '-2px' }} />
+              {syncingCalendar ? 'Syncing…' : 'Sync with Google Calendar'}
+            </button>
+          </div>
+
           <div className="g2">
             <div className="pn row">
               <Ring percent={report.overallScore} size={130} />

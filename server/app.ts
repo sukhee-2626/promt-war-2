@@ -1211,6 +1211,56 @@ export function createApiApp(): express.Express {
     });
   });
 
+  // Google Calendar Sync & Automatic Reminders Endpoint
+  app.post('/api/calendar/sync-interview', resolveUser, (req: AuthedRequest, res) => {
+    const userId = req.userId!;
+    const {
+      interviewType = 'Frontend Engineer Mock Interview',
+      startTime = new Date(Date.now() + 86400000).toISOString(),
+      durationMinutes = 45,
+      reminderMinutes = 30,
+    } = req.body as {
+      interviewType?: string;
+      startTime?: string;
+      durationMinutes?: number;
+      reminderMinutes?: number;
+    };
+
+    const startDate = new Date(startTime);
+    const endDate = new Date(startDate.getTime() + (durationMinutes || 45) * 60000);
+
+    const fmtGCal = (d: Date) => d.toISOString().replace(/-|:/g, '').replace(/\.\d\d\d/, '');
+    const datesStr = `${fmtGCal(startDate)}/${fmtGCal(endDate)}`;
+    const title = encodeURIComponent(`place1ai Mock Interview: ${interviewType}`);
+    const details = encodeURIComponent(
+      `Your live AI mock interview session on place1ai.\n\nAutomatic meeting reminder set for ${reminderMinutes} minutes before start time.\n\nJoin workspace: https://place1ai.app`
+    );
+    const location = encodeURIComponent('place1ai Virtual Interview Studio (Online)');
+
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${datesStr}&details=${details}&location=${location}&reminders=${reminderMinutes}`;
+
+    appendAgentLog(
+      userId,
+      'Calendar Sync',
+      `Synced ${interviewType} to Google Calendar for ${startDate.toLocaleString()} with ${reminderMinutes}m reminder`
+    );
+
+    const reward = awardXpAndEvaluateBadges(userId, 15, 15, 1, 'calendar_sync');
+
+    res.json({
+      success: true,
+      calendarUrl,
+      eventSummary: {
+        title: `place1ai Mock Interview: ${interviewType}`,
+        startTime: startDate.toISOString(),
+        durationMinutes,
+        reminderMinutes,
+      },
+      reward,
+      state: getAppState(userId),
+    });
+  });
+
   // Cover letter generation via Gemini
   app.post('/api/kit/cover-letter', resolveUser, async (req: AuthedRequest, res) => {
     const userId = req.userId!;
