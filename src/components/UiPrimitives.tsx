@@ -837,31 +837,25 @@ export function GuidedTourOverlay({
               Adjust Goal
             </button>
           )}
-          {isLast && onOpenRagMentor && (
+          {isLast ? (
             <button
               className="p"
               onClick={() => {
                 setAutoPlaying(false);
                 onClose();
-                onOpenRagMentor();
+                onStep(5); // step 5 is interview screen
               }}
             >
-              Open AI Mentor
+              Launch Virtual Interview →
+            </button>
+          ) : (
+            <button
+              className="p"
+              onClick={() => onStep(stepIndex + 1)}
+            >
+              Next →
             </button>
           )}
-          <button
-            className={isLast && onOpenRagMentor ? '' : 'p'}
-            onClick={() => {
-              if (isLast) {
-                setAutoPlaying(false);
-                onClose();
-              } else {
-                onStep(stepIndex + 1);
-              }
-            }}
-          >
-            {isLast ? 'Finish Tour' : 'Next →'}
-          </button>
         </div>
       </div>
     </div>
