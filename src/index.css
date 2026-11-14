@@ -21,21 +21,21 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #040812;
-  --pan: rgba(8, 16, 28, 0.78);
-  --ink: #f8fafc;
-  --mute: rgba(226, 232, 240, 0.65);
-  --line: rgba(56, 189, 248, 0.16);
+  --bg: #000000;
+  --pan: rgba(10, 10, 15, 0.88);
+  --ink: #ffffff;
+  --mute: rgba(255, 255, 255, 0.65);
+  --line: rgba(255, 255, 255, 0.12);
   --pri: #38bdf8;
-  --onpri: #040812;
+  --onpri: #000000;
   --gold: #2dd4bf;
   --ok: #4ade80;
   --bad: #f87171;
-  --soft: rgba(56, 189, 248, 0.08);
-  --glass: linear-gradient(155deg, rgba(12, 22, 38, 0.76), rgba(6, 12, 22, 0.64));
-  --glass-panel: rgba(10, 18, 30, 0.7);
-  --gline: rgba(56, 189, 248, 0.22);
-  --spot: rgba(45, 212, 191, 0.16);
+  --soft: rgba(255, 255, 255, 0.05);
+  --glass: linear-gradient(155deg, rgba(16, 16, 24, 0.82), rgba(6, 6, 10, 0.76));
+  --glass-panel: rgba(12, 12, 18, 0.8);
+  --gline: rgba(255, 255, 255, 0.16);
+  --spot: rgba(45, 212, 191, 0.14);
   color-scheme: dark;
 }
 
